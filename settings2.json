@@ -1,0 +1,28 @@
+{
+    "Settings": [
+        {
+            "baseUrl": "http://152.3.99.52",
+            "username": "charlie",
+            "password": "12112002a!",
+            "NumPlayers": 16,
+            "PlayersPerScreen": 15,
+            "NumberOfPages": 2
+        },
+        {
+            "baseUrl": "http://152.3.99.52",
+            "username": "charlies",
+            "password": "12112002a!",
+            "NumPlayers": 19,
+            "PlayersPerScreen": 15,
+            "NumberOfPages": 2
+        },
+        {
+            "baseUrl": "http://152.3.99.52",
+            "username": "charlieb",
+            "password": "12112002a!",
+            "NumPlayers": 17,
+            "PlayersPerScreen": 15,
+            "NumberOfPages": 2
+        },
+    ]
+}
