@@ -1,13 +1,16 @@
 CC = gcc
 GTK_LIBS = `pkg-config --cflags --libs gtk+-3.0`
 LIBS = -ljansson -lcurl -lm
-OBJS = UI/Window.o Curl/roster.o Helpers/playerHelper.o Helpers/jsonReader.o UI/login.o Curl/cams.o UI/dmx.o HeadshotImporter/headshotRoster.o HeadshotImporter/headshot.o 
+OBJS = UI/Window.o Curl/roster.o Helpers/playerHelper.o Helpers/jsonReader.o UI/login.o Curl/cams.o UI/dmx.o HeadshotImporter/headshotRoster.o HeadshotImporter/headshot.o HeadshotImporter/headshotUI.o Curl/schedule.o
 
 program: $(OBJS)
 	$(CC) -o program $(OBJS) $(GTK_LIBS) $(LIBS)
 	
 HeadshotImporter/headshot.o: HeadshotImporter/headshot.c HeadshotImporter/headshot.h
 	$(CC) -c HeadshotImporter/headshot.c -o HeadshotImporter/headshot.o $(GTK_LIBS)
+	
+HeadshotImporter/headshotUI.o: HeadshotImporter/headshotUI.c HeadshotImporter/headshotUI.h
+	$(CC) -c HeadshotImporter/headshotUI.c -o HeadshotImporter/headshotUI.o $(GTK_LIBS)
 	
 HeadshotImporter/headshotRoster.o: HeadshotImporter/headshotRoster.c HeadshotImporter/headshotRoster.h HeadshotImporter/headshot.h 
 	$(CC) -c HeadshotImporter/headshotRoster.c -o HeadshotImporter/headshotRoster.o $(LIBS)
@@ -27,7 +30,15 @@ Helpers/jsonReader.o: Helpers/jsonReader.c Helpers/jsonReader.h
 Curl/cams.o: Curl/cams.c Curl/cams.h
 	$(CC) -c Curl/cams.c -o Curl/cams.o $(LIBS)
 	
-UI/login.o: UI/login.c UI/login.h
+Curl/survey.o: Curl/survey.c Curl/survey.h
+	$(CC) -c Curl/survey.c -o Curl/survey.o $(LIBS)
+	@echo "survey.o located at: "
+	@find . -name survey.o
+	
+Curl/schedule.o: Curl/schedule.c Curl/schedule.h Curl/roster.h 
+	$(CC) -c Curl/schedule.c -o Curl/schedule.o $(LIBS) $(GTK_LIBS)
+	
+UI/login.o: UI/login.c UI/login.h Helpers/jsonReader.o
 	$(CC) -c UI/login.c -o UI/login.o $(GTK_LIBS)
 	
 UI/dmx.o: UI/dmx.c UI/dmx.h

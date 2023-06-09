@@ -6,6 +6,7 @@
 #include "headshot.h"
 #include "../Helpers/jsonReader.h"
 #include "../Curl/roster.h"
+#include "headshotUI.h"
 
 Settings* headshotSettings;
 
@@ -89,6 +90,8 @@ void process_json_for_headshots(const char *json_string) {
 
     size_t index;
     json_t *value;
+    int headshotNum = 0;
+    int successfulHeadshot = 0;
     json_array_foreach(root, index, value) {
         json_t *id_json, *name_json, *headshot_json;
 
@@ -113,6 +116,7 @@ void process_json_for_headshots(const char *json_string) {
 void getHeadshots(int teamIndex) {
   headshotSettings = load_settings("../WeightStation/settings.json",teamIndex);
   process_json_for_headshots(getJson(get_token(headshotSettings->baseUrl, headshotSettings->username, headshotSettings->password),headshotSettings->baseUrl));
+  
   free(headshotSettings->baseUrl);
   free(headshotSettings->password);
   free(headshotSettings->username);

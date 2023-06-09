@@ -4,8 +4,6 @@
 #include <string.h>
 #include "jsonReader.h"
 
-#include <jansson.h>
-
 char** get_team_codes(const char *json_file_path, int *numTeams) {
     json_t *root;
     json_error_t error;
@@ -53,6 +51,104 @@ char** get_team_codes(const char *json_file_path, int *numTeams) {
     json_decref(root);
 
     return team_codes;
+}
+
+int get_num_teams(const char *json_file_path) {
+    json_t *root;
+    json_error_t error;
+    json_t *settings, *team_code;
+    size_t i;
+
+    // Load the JSON file
+    root = json_load_file(json_file_path, 0, &error);
+
+    if (!root) {
+        fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
+        return 0;
+    }
+
+    // Get the "Settings" array
+    settings = json_object_get(root, "Settings");
+
+    if (!json_is_array(settings)) {
+        fprintf(stderr, "error: Settings is not an array\n");
+        json_decref(root);
+        return 0;
+    }
+    
+    printf("Got settings.json array\n");
+
+    // Get the number of teams
+    size_t num_teams = json_array_size(settings);
+    printf("Size: %i\n",num_teams);
+    return(num_teams);
+}
+
+void load_RGB(Settings *settings, json_t *settingsData, json_t *root) {
+    char *rgb_component, *end, *temp_str;
+
+    // Parse CompletedRGB
+    json_t *completeRGB = json_object_get(settingsData, "CompletedRGB");
+    if (!json_is_string(completeRGB)) {
+        fprintf(stderr, "error: CompletedRGB is not a string\n");
+        json_decref(root);
+        return;
+    }
+
+    temp_str = strdup(json_string_value(completeRGB));
+    for (int i = 0; i < 3; i++) {
+        rgb_component = strtok_r(i == 0 ? temp_str : NULL, ",", &end);
+        if (!rgb_component) {
+            fprintf(stderr, "error: not enough CompletedRGB values\n");
+            free(temp_str);
+            json_decref(root);
+            return;
+        }
+        settings->completedRGB[i] = atoi(rgb_component);
+    }
+    free(temp_str);
+
+    // Parse NotCompletedRGB
+    json_t *notCompleteRGB = json_object_get(settingsData, "NotCompletedRGB");
+    if (!json_is_string(notCompleteRGB)) {
+        fprintf(stderr, "error: NotCompletedRGB is not a string\n");
+        json_decref(root);
+        return;
+    }
+
+    temp_str = strdup(json_string_value(notCompleteRGB));
+    for (int i = 0; i < 3; i++) {
+        rgb_component = strtok_r(i == 0 ? temp_str : NULL, ",", &end);
+        if (!rgb_component) {
+            fprintf(stderr, "error: not enough NotCompletedRGB values\n");
+            free(temp_str);
+            json_decref(root);
+            return;
+        }
+        settings->incompletedRGB[i] = atoi(rgb_component);
+    }
+    free(temp_str);
+
+    // Parse InvalidRGB
+    json_t *invalidRGB = json_object_get(settingsData, "InvalidRGB");
+    if (!json_is_string(invalidRGB)) {
+        fprintf(stderr, "error: InvalidRGB is not a string\n");
+        json_decref(root);
+        return;
+    }
+
+    temp_str = strdup(json_string_value(invalidRGB));
+    for (int i = 0; i < 3; i++) {
+        rgb_component = strtok_r(i == 0 ? temp_str : NULL, ",", &end);
+        if (!rgb_component) {
+            fprintf(stderr, "error: not enough InvalidRGB values\n");
+            free(temp_str);
+            json_decref(root);
+            return;
+        }
+        settings->invalidRGB[i] = atoi(rgb_component);
+    }
+    free(temp_str);
 }
 
 Settings* load_settings(const char* filename, int teamIndex) {
@@ -121,13 +217,33 @@ Settings* load_settings(const char* filename, int teamIndex) {
     }
     settings->playerPerPage = atoi(json_string_value(playerPerPage));
     
+    json_t *weighIn = json_object_get(settingsData, "WeighInOffset");
+    if (!json_is_string(weighIn)) {
+        printf("%s\n",json_string_value(weighIn));
+        fprintf(stderr, "error: WeighInOffset is not an integer\n");
+        json_decref(root);
+        return NULL;
+    }
+    settings->weighInOffset = atoi(json_string_value(weighIn));
+    
+    json_t *weighOut = json_object_get(settingsData, "WeighOutOffset");
+    if (!json_is_string(weighOut)) {
+        printf("%s\n",json_string_value(weighOut));
+        fprintf(stderr, "error: WeighOutOffset is not an integer\n");
+        json_decref(root);
+        return NULL;
+    }
+    settings->weighOutOffset = atoi(json_string_value(weighIn));
+    
     json_t *numberOfScreens = json_object_get(settingsData, "NumberOfPages");
     if (!json_is_string(numberOfScreens)) {
         fprintf(stderr, "error: NumberOfPages is not an integer\n");
         json_decref(root);
         return NULL;
     }
-    settings->numPages = atoi(json_string_value(playerPerPage));
+    settings->numPages = atoi(json_string_value(numberOfScreens));
+    
+    load_RGB(settings,settingsData,root);
 
     json_decref(root);
 
