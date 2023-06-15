@@ -9,6 +9,6 @@ typedef struct {
     int responseType; //1 is true or false, 2 is yes/no, 3 is 1-3, 4 is 1-5
 } surveyQuestion;
 
-char *get_survey(const char* baseUrl, int teamIndex);
+surveyQuestion *get_survey(const char* baseUrl, int teamIndex);
 
 #endif

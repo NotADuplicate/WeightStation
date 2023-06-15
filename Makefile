@@ -1,7 +1,7 @@
 CC = gcc
 GTK_LIBS = `pkg-config --cflags --libs gtk+-3.0`
 LIBS = -ljansson -lcurl -lm
-OBJS = UI/Window.o Curl/roster.o Helpers/playerHelper.o Helpers/jsonReader.o UI/login.o Curl/cams.o UI/dmx.o HeadshotImporter/headshotRoster.o HeadshotImporter/headshot.o HeadshotImporter/headshotUI.o Curl/schedule.o
+OBJS = UI/Window.o Curl/roster.o Helpers/playerHelper.o Helpers/jsonReader.o UI/login.o Curl/cams.o UI/dmx.o HeadshotImporter/headshotRoster.o HeadshotImporter/headshot.o HeadshotImporter/headshotUI.o Curl/schedule.o Curl/survey.o UI/surveyUI.o
 
 program: $(OBJS)
 	$(CC) -o program $(OBJS) $(GTK_LIBS) $(LIBS)
@@ -32,8 +32,6 @@ Curl/cams.o: Curl/cams.c Curl/cams.h
 	
 Curl/survey.o: Curl/survey.c Curl/survey.h
 	$(CC) -c Curl/survey.c -o Curl/survey.o $(LIBS)
-	@echo "survey.o located at: "
-	@find . -name survey.o
 	
 Curl/schedule.o: Curl/schedule.c Curl/schedule.h Curl/roster.h 
 	$(CC) -c Curl/schedule.c -o Curl/schedule.o $(LIBS) $(GTK_LIBS)
@@ -43,6 +41,9 @@ UI/login.o: UI/login.c UI/login.h Helpers/jsonReader.o
 	
 UI/dmx.o: UI/dmx.c UI/dmx.h
 	$(CC) -c UI/dmx.c -o UI/dmx.o $(GTK_LIBS)
-
+	
+UI/surveyUI.o: UI/surveyUI.c UI/surveyUI.h
+	$(CC) -c UI/surveyUI.c -o UI/surveyUI.o $(GTK_LIBS)
+	
 clean:
 	rm -f program $(OBJS)

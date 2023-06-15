@@ -9,8 +9,10 @@ enum Mode {
 };
 
 enum View {
-    MAIN_WINDOW,
-    DMX_WINDOW
+    MAIN_WINDOW = 0,
+    DMX_WINDOW = 1, 
+    WEIGH_WINDOW = 2,
+    SURVEY_WINDOW = 3
 };
 
 typedef struct {
@@ -20,6 +22,13 @@ typedef struct {
 } circleStruct;
 
 typedef struct {
+    int playerIndex;
+    GtkWidget *entry;
+    GtkWidget *window;
+} SubmitData;
+
+
+typedef struct {
     Player *teamPlayers;
     circleStruct *teamCircles;
     Settings *teamSettings;
@@ -27,6 +36,7 @@ typedef struct {
     int *teamSorted;
     char *token;
     practiceStruct *teamPractices; 
+    surveyQuestion *survey;
 } teamStruct;
 
 void create_main_window();
@@ -36,5 +46,7 @@ void cleanup();
 void load_globals(int teamNum);
 
 void set_mode(enum Mode setmode, int manualOverride);
+
+void submit_weight(SubmitData *data);
 
 #endif

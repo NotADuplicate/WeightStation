@@ -14,6 +14,7 @@ typedef struct Settings {
     int completedRGB[3];
     int incompletedRGB[3];
     int invalidRGB[3];
+    int survey; //1 true, 0 = no survey
 } Settings;
 
 Settings* load_settings(const char* filename, int teamIndex);

@@ -7,6 +7,7 @@
 #include "../UI/dmx.h"
 #include "../Curl/schedule.h"
 #include "../Curl/survey.h"
+#include "../UI/surveyUI.h"
 #include "Window.h"
 #include <unistd.h>
 #include <time.h>
@@ -58,9 +59,9 @@ void cleanup() {
     free(circles);
     free(sorted);
     int i = 0;
-    printf("Num players:%i\n",*numPlayers_pointer);
+    //printf("Num players:%i\n",*numPlayers_pointer);
     while(i < *numPlayers_pointer) {
-        printf("Freeing image %i\n",i);
+        //printf("Freeing image %i\n",i);
         if (images[i]) {
             g_object_unref(images[i]);
         }
@@ -70,14 +71,14 @@ void cleanup() {
     free(images);
     free(settings);
     g_object_unref(forwardArrow);
-    printf("Freed forward arrow\n");
+    //printf("Freed forward arrow\n");
     g_object_unref(backArrow);
     g_object_unref(oasisLogo);
     
 }
 
 void load_image(GdkPixbuf **pixbuf, const char *filepath, double scale) {
-    printf("Loading %s\n", filepath);
+    //printf("Loading %s\n", filepath);
     GError *error = NULL;
     *pixbuf = gdk_pixbuf_new_from_file_at_scale(filepath, scale, scale, TRUE, &error);
     if (!*pixbuf) {
@@ -108,7 +109,7 @@ void load_globals(int teamNum) {
     printf("Finished setting team stuff\n");
     //Load images
     for (int i = 0; i < *numPlayers_pointer; i++) {
-        printf("%s\n",teams[teamNum].teamPlayers[i].Name);
+        //printf("%s\n",teams[teamNum].teamPlayers[i].Name);
         load_image(&teams[teamNum].teamHeadshots[i], teams[teamNum].teamPlayers[i].HeadshotFilepath,-1);
     }
     
@@ -117,7 +118,7 @@ void load_globals(int teamNum) {
     
     // Initialize the circles array
     if(teams[teamNum].teamSettings->playerPerPage == 15) {
-        printf("playersPerPage 15\n");
+        //printf("playersPerPage 15\n");
         double xp = 200;
         double yp = 270;
         for (int i = 0; i < 15; i++) {
@@ -132,7 +133,7 @@ void load_globals(int teamNum) {
         }
     }
     else if(teams[teamNum].teamSettings->playerPerPage == 60) {
-        printf("playersPerPage 60\n");
+        //printf("playersPerPage 60\n");
         double xp = 200;
         double yp = 200;
         for (int i = 0; i < 60; i++) {
@@ -146,6 +147,8 @@ void load_globals(int teamNum) {
             }
         }
     }
+    teams[teamNum].survey = get_survey(teams[teamNum].teamSettings->baseUrl,teamNum);
+    //create_survey_window(teams[teamNum].survey);
 }
 
 void set_team(int teamNum) {
@@ -164,8 +167,8 @@ void clear_practice() {
 }
 
 static gboolean time_handler(GtkWidget *widget) {
-    if(overridden == 0 && view == MAIN_WINDOW) { //only works when not in manual override
-        printf("Handling time\n");
+    if(overridden == 0 && view == MAIN_WINDOW) { //only works when not in manual override and looking at main window
+        //printf("Handling time\n");
         time_t rawtime_int;
         double rawtime_double;
         rawtime_int = time(NULL);
@@ -182,6 +185,7 @@ static gboolean time_handler(GtkWidget *widget) {
         // Invalidate the widget so it will be redrawn
         gtk_widget_queue_draw(widget);
     }
+    //printf("Tried to handle time: %i\n", overridden);
 
     return G_SOURCE_CONTINUE;
 }
@@ -202,52 +206,103 @@ void destroy() { //when window is closed
     gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(Provider), "* { background-color: rgb(255,255,255); }", -1, NULL);
 }
 
-void show_text_input_dialog(GtkWidget *parent, int playerIndex) { //get weight popup
-    GtkWidget *dialog, *content_area;
-    GtkWidget *entry;
-    gint response;
-
-    dialog = gtk_dialog_new_with_buttons("Enter Weight",
-                                         GTK_WINDOW(parent),
-                                         GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-                                         "_OK", GTK_RESPONSE_OK,
-                                         "_Cancel", GTK_RESPONSE_CANCEL,
-                                         NULL);
-    content_area = gtk_dialog_get_content_area(GTK_DIALOG(dialog));
-    entry = gtk_entry_new();
-    gtk_container_add(GTK_CONTAINER(content_area), entry);
-
-    gtk_widget_show_all(dialog);
-
-    response = gtk_dialog_run(GTK_DIALOG(dialog));
-
-    if (response == GTK_RESPONSE_OK) {
-        g_print("Input: %s\n", gtk_entry_get_text(GTK_ENTRY(entry)));
-        int type;
-        time_t rawtime_int;
-        double rawtime_double;
-        rawtime_int = time(NULL);
-        rawtime_double = (double)rawtime_int;
-        if(mode == WEIGH_IN)
-            type = 1;
-        else if(mode == WEIGH_OUT)
-            type = 2;
-        free(send_weight(settings->baseUrl,gtk_entry_get_text(GTK_ENTRY(entry)),players[sorted[playerIndex]].Id,type,rawtime_double,teamIndex));
-        players[playerIndex].weight = atoi(gtk_entry_get_text(GTK_ENTRY(entry)));
+void submit_weight(SubmitData *data) {
+    const char *entry = gtk_entry_get_text(GTK_ENTRY(data->entry));
+    int playerIndex = data->playerIndex;
+    g_print("Input: %s\n", entry);
+    int type;
+    time_t rawtime_int;
+    double rawtime_double;
+    rawtime_int = time(NULL);
+    rawtime_double = (double)rawtime_int;
+    if(mode == WEIGH_IN)
+        type = 1;
+    else if(mode == WEIGH_OUT)
+        type = 2;
+    free(send_weight(settings->baseUrl,entry,players[sorted[playerIndex]].Id,type,rawtime_double,teamIndex));
+    players[playerIndex].weight = atoi(entry);
+    printf("%i\n",settings->survey);
+    gtk_widget_destroy(data->window);
+    if(settings->survey == 1) {
+        create_survey_window(teams[teamIndex].survey);
+        view = MAIN_WINDOW;
     }
+    else
+        view = MAIN_WINDOW;
+}
 
-    gtk_widget_destroy(dialog);
+void create_weigh_input(GdkPixbuf *pixbuf, const char *text, int playerIndex) {
+    view = WEIGH_WINDOW;
+    GtkWidget *window;
+    GtkWidget *vbox;
+    GtkWidget *label;
+    GtkWidget *image;
+    GtkWidget *entry;
+    GtkWidget *button;
+    view = WEIGH_WINDOW;
+
+    // create new window
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window), "popup_window");
+    gtk_window_set_default_size(GTK_WINDOW(window), 300, 500);
+    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
+
+
+    // when the window is given the "delete-event" signal (this is given by the window manager, 
+    // usually by the "close" option, or on the titlebar), we ask it to call the delete_event () 
+    // function as defined above. The data passed to the callback function is NULL and is ignored 
+    // in the callback function.
+    g_signal_connect(window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
+
+    // create vbox to hold image, label, entry and button
+    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+    gtk_container_add(GTK_CONTAINER(window), vbox);
+
+    // create label with text
+    label = gtk_label_new(text);
+    gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 2);
+
+    // create image from pixbuf
+    image = gtk_image_new_from_pixbuf(pixbuf);
+    gtk_box_pack_start(GTK_BOX(vbox), image, TRUE, TRUE, 2);
+
+    // create text entry
+    entry = gtk_entry_new();
+    gtk_box_pack_start(GTK_BOX(vbox), entry, FALSE, FALSE, 2);
+
+    // create submit button
+    button = gtk_button_new_with_label("Send weight");
+    gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 2);
+    
+    SubmitData *submit_data = g_new(SubmitData, 1);
+    submit_data->playerIndex = playerIndex;
+    submit_data->entry = entry;
+    submit_data->window = window;
+
+    // connect button click event with callback that closes the window and call the submit function
+    g_signal_connect_swapped(button, "clicked", G_CALLBACK(submit_weight), submit_data);
+    //g_signal_connect(button, "clicked", G_CALLBACK(submit_weight), NULL);
+
+    // show all widgets in the window
+    gtk_widget_show_all(window);
+
+    // enter the main loop and start processing events
+    //gtk_main();
+    printf("Finished weigh window\n");
 }
 
 int clicks = 0;
 gboolean clicked_inside_circle(gdouble event_x, gdouble event_y, GtkWidget *widget) { //get weight
-	for (int i = 0; i < 15; i++) {
-		gdouble dist = distFunction(circles[i].x,circles[i].y,event_x,event_y);
-		if(dist < circles[i].radius) {
-			gtk_widget_queue_draw(widget);
-			show_text_input_dialog(widget,sorted[i]);
-		}
-	}
+	if(mode != WAITING && view == MAIN_WINDOW) {
+        for (int i = 0; i < 15; i++) {
+            gdouble dist = distFunction(circles[i].x,circles[i].y,event_x,event_y);
+            if(dist < circles[i].radius) {
+                gtk_widget_queue_draw(widget);
+                //show_text_input_dialog(widget,sorted[i]);
+                create_weigh_input(images[sorted[i]],players[sorted[i]].Name, sorted[i]);
+            }
+        }
+    }
     return FALSE;
 }
 
@@ -256,7 +311,7 @@ gboolean clicked_arrow(gdouble event_x, gdouble event_y, GtkWidget *widget) {
         if(pageNum < settings->numPages) {
             pageNum++;
             gtk_widget_queue_draw(widget);
-            printf("Next page, %i our of %i",event_x,event_y);
+            printf("Next page, %i our of %i",pageNum,settings->numPages);
         }
 	}
 	else if(distFunction(BACK_ARROW_X,BACK_ARROW_Y,event_x,event_y) < 60) {
@@ -348,7 +403,7 @@ void draw_image(cairo_t *cr, int x, int y, GdkPixbuf *pixbuf) {
 
 
 void draw_circle(cairo_t *cr, int i, int player) { //double xp, double yp, double radius, double r, double g, double b) {
-    printf("Trying to draw player %i\n",player);
+    //printf("Trying to draw player %i\n",player);
     if(players[player].weight != 0)
         cairo_set_source_rgb(cr, settings->completedRGB[0],settings->completedRGB[1],settings->completedRGB[2]); //they have been weighed so display complete RGB
     else
@@ -443,12 +498,22 @@ void create_main_window() {
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     overlay = gtk_overlay_new();
 
-    GtkCssProvider* Provider = gtk_css_provider_new();
     GdkDisplay* Display = gdk_display_get_default();
     GdkScreen* Screen = gdk_display_get_default_screen(Display);
 
-    gtk_style_context_add_provider_for_screen(Screen, GTK_STYLE_PROVIDER(Provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
-    gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(Provider), "* { background-color: rgb(44,67,102); }", -1, NULL);
+    //gtk_style_context_add_provider_for_screen(Screen, GTK_STYLE_PROVIDER(Provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
+    //gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(Provider), "* { background-color: rgb(44,67,102); }", -1, NULL); //create background color
+
+    gtk_widget_set_name(window, "main_window");
+
+    GtkCssProvider *Provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(Provider),
+        "#main_window { background-color: rgb(44,67,102); }"
+        "window { background-color: rgb(255,255,255); }", 
+        -1, NULL);
+    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+                                            GTK_STYLE_PROVIDER(Provider), 
+                                            GTK_STYLE_PROVIDER_PRIORITY_USER);
 
     gtk_container_add(GTK_CONTAINER(window), overlay);
     

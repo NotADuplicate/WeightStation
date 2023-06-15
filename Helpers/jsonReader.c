@@ -152,6 +152,7 @@ void load_RGB(Settings *settings, json_t *settingsData, json_t *root) {
 }
 
 Settings* load_settings(const char* filename, int teamIndex) {
+    printf("LOADING SETTINGS\n\n\nLOADING\n");
     json_t *root;
     json_error_t error;
     root = json_load_file(filename, 0, &error);
@@ -217,6 +218,19 @@ Settings* load_settings(const char* filename, int teamIndex) {
     }
     settings->playerPerPage = atoi(json_string_value(playerPerPage));
     
+    json_t *survey = json_object_get(settingsData, "Survey");
+    printf("%s\n",json_string_value(survey));
+    if (!json_is_string(survey)) {
+        printf("%s\n",json_string_value(playerPerPage));
+        fprintf(stderr, "error: Survey is not an integer\n");
+        json_decref(root);
+        return NULL;
+    }
+    if(json_string_value(survey)[0] == 'T') //jank way to check if true
+        settings->survey = 1;
+    else
+        settings->survey = 0;
+    
     json_t *weighIn = json_object_get(settingsData, "WeighInOffset");
     if (!json_is_string(weighIn)) {
         printf("%s\n",json_string_value(weighIn));
@@ -246,6 +260,8 @@ Settings* load_settings(const char* filename, int teamIndex) {
     load_RGB(settings,settingsData,root);
 
     json_decref(root);
+    
+    printf("Done with settings\n");
 
     return settings;
 }
