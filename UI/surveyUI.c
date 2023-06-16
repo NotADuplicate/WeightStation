@@ -23,7 +23,7 @@ void submit_survey(GtkWidget *widget, gpointer user_data) {
 void on_button_toggled(GtkToggleButton *button, ButtonIndices *data) {
     if (gtk_toggle_button_get_active(button)) {
         printf("Question %d option %d clicked\n", data->question_index+1, data->option_index+1);
-        selected_options[question_index] = option_index+1;
+        selected_options[data->question_index] = data->option_index+1;
 
         // Iterate over all children of the box and turn them off
         GList *children, *iter;

@@ -70,5 +70,8 @@
             "username": "charlie",
             "password": "12112002a!"
         }
-    ]
+    ],
+    "ServerMode": "Client",
+    "ServerIp": "192.168.0.79",
+    "ServerPort": "8080"
 }

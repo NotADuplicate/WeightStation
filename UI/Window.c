@@ -8,6 +8,7 @@
 #include "../Curl/schedule.h"
 #include "../Curl/survey.h"
 #include "../UI/surveyUI.h"
+#include "../ServerClient/client.h"
 #include "Window.h"
 #include <unistd.h>
 #include <time.h>
@@ -182,6 +183,9 @@ static gboolean time_handler(GtkWidget *widget) {
         else
             mode = WEIGH_OUT;
             
+        int connected = check_connection();
+        printf("Connected to client: %i\n",connected);
+            
         // Invalidate the widget so it will be redrawn
         gtk_widget_queue_draw(widget);
     }
@@ -229,6 +233,8 @@ void submit_weight(SubmitData *data) {
     }
     else
         view = MAIN_WINDOW;
+    if(settings->server == 0)
+        send_weighed(teamIndex, playerIndex);
 }
 
 void create_weigh_input(GdkPixbuf *pixbuf, const char *text, int playerIndex) {
@@ -443,10 +449,8 @@ gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data) {
         seconds_to_readable_time(waitTime,time_string);
         printf("%d\n",waitTime);
         cairo_show_text(cr, time_string);
-        if(waitTime > 120)
-            g_timeout_add_seconds(60, (GSourceFunc) time_handler, (gpointer) widget); // every 60 seconds recheck if in timeout
-        else
-            g_timeout_add_seconds(1, (GSourceFunc) time_handler, (gpointer) widget); // every 60 seconds recheck if in timeout
+        
+        g_timeout_add_seconds(10, (GSourceFunc) time_handler, (gpointer) widget); // every 60 seconds recheck if in timeout
     }
     if(mode != WAITING) {
         g_timeout_add_seconds(60, (GSourceFunc) time_handler, (gpointer) widget); // every 60 seconds recheck if in timeout
@@ -565,6 +569,9 @@ int main(int argc, char *argv[]) {
     set_team(0);
     
     printf("Num teams: %i\n",numTeams);
+    
+    if(settings->server == 0) //if client, create client
+        create_client(settings->ip); 
     
     create_main_window();
     

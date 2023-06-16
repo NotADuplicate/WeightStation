@@ -15,6 +15,9 @@ typedef struct Settings {
     int incompletedRGB[3];
     int invalidRGB[3];
     int survey; //1 true, 0 = no survey
+    int server; //1 true, 0 = client
+    char *ip; //ip of server
+    char *port; //port of the server
 } Settings;
 
 Settings* load_settings(const char* filename, int teamIndex);

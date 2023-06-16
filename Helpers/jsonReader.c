@@ -169,7 +169,7 @@ Settings* load_settings(const char* filename, int teamIndex) {
         return NULL;
     }
 
-    json_t *settingsData = json_array_get(settingsArray, teamIndex); // Get the first object in the array
+    json_t *settingsData = json_array_get(settingsArray, teamIndex); // Get the specific team settings
     if (!json_is_object(settingsData)) {
         fprintf(stderr, "error: settingsData is not an object\n");
         json_decref(root);
@@ -202,12 +202,21 @@ Settings* load_settings(const char* filename, int teamIndex) {
     }
     settings->password = strdup(json_string_value(password));
 
-    /*json_t *NumPlayers = json_object_get(settingsData, "NumPlayers");
-    if (!json_is_integer(NumPlayers)) {
-        fprintf(stderr, "error: NumPlayers is not an integer\n");
+    json_t *ip = json_object_get(root, "ServerIp");
+    if (!json_is_string(ip)) {
+        fprintf(stderr, "error: ip is not a string\n");
         json_decref(root);
         return NULL;
-    }*/
+    }
+    settings->ip = strdup(json_string_value(ip));
+    
+    json_t *port = json_object_get(root, "ServerPort");
+    if (!json_is_string(port)) {
+        fprintf(stderr, "error: port is not a string\n");
+        json_decref(root);
+        return NULL;
+    }
+    settings->port = strdup(json_string_value(port));
     
     json_t *playerPerPage = json_object_get(settingsData, "PlayersPerScreen");
     if (!json_is_string(playerPerPage)) {
@@ -230,6 +239,18 @@ Settings* load_settings(const char* filename, int teamIndex) {
         settings->survey = 1;
     else
         settings->survey = 0;
+        
+    json_t *server = json_object_get(root, "ServerMode");
+    if (!json_is_string(server)) {
+        printf("%s\n",json_string_value(server));
+        fprintf(stderr, "error: Server is not a string\n");
+        json_decref(root);
+        return NULL;
+    }
+    if(json_string_value(server)[0] == 'S') //jank way to check if server
+        settings->server = 1;
+    else
+        settings->server = 0;
     
     json_t *weighIn = json_object_get(settingsData, "WeighInOffset");
     if (!json_is_string(weighIn)) {
