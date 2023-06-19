@@ -214,6 +214,7 @@ void submit_weight(SubmitData *data) {
     const char *entry = gtk_entry_get_text(GTK_ENTRY(data->entry));
     int playerIndex = data->playerIndex;
     g_print("Input: %s\n", entry);
+    
     int type;
     time_t rawtime_int;
     double rawtime_double;
@@ -223,8 +224,10 @@ void submit_weight(SubmitData *data) {
         type = 1;
     else if(mode == WEIGH_OUT)
         type = 2;
+        
     free(send_weight(settings->baseUrl,entry,players[sorted[playerIndex]].Id,type,rawtime_double,teamIndex));
     players[playerIndex].weight = atoi(entry);
+    
     printf("%i\n",settings->survey);
     gtk_widget_destroy(data->window);
     if(settings->survey == 1) {

@@ -8,12 +8,43 @@
 #include <sys/socket.h> 
 #include <netinet/in.h> 
 #include <fcntl.h>
+#include <pthread.h>
 #include <sys/select.h>
 
 #define PORT 8080
 #define WEIGHED 0
+#define MAXLINE 10
 
 int sockfd;
+
+void* receive_thread_func(void* arg) {
+    int sockfd = *((int*)arg);
+    int buffer[MAXLINE];
+    ssize_t valread;
+
+    while (1) {
+        memset(buffer, 0, sizeof(buffer));
+        valread = recv(sockfd, buffer, sizeof(buffer), 0);
+        if (valread <= 0) {
+            if (valread == 0) {
+                printf("Server disconnected\n");
+            } else {
+                perror("recv failed");
+            }
+            close(sockfd);
+            return NULL;
+        }
+
+        int num_ints = valread / sizeof(int);
+        printf("Received %d integers: ", num_ints);
+        for (int i = 0; i < num_ints; i++) {
+            printf("%d ", buffer[i]);
+        }
+        printf("\n");
+    }
+
+    return NULL;
+}
 
 int check_connection() {
     printf("Checking connection\n");
@@ -28,7 +59,7 @@ int check_connection() {
 }
 
 void send_weighed(int player, int team) {
-    int message[3] = {WEIGHED, player, team};
+    int message[3] = {WEIGHED, team, player};
 
     int sent = send(sockfd, message, sizeof(message), 0); 
     printf("Message sent: %d %d\n", player, team);
@@ -83,6 +114,12 @@ int create_client(char *ip_address) {
             // socket is successfully connected
             fcntl(sockfd, F_SETFL, fcntl(sockfd, F_GETFL, 0) & ~O_NONBLOCK);
             send_weighed(0,5); //connect message
+            
+            //start thread
+            pthread_t receive_thread;
+            pthread_create(&receive_thread, NULL, receive_thread_func, &sockfd);
+            pthread_detach(receive_thread);
+            
             return sockfd;
         } else {
             // error occurred, connection failed
