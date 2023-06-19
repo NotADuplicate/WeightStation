@@ -2,7 +2,7 @@ CC = gcc
 GTK_LIBS = `pkg-config --cflags --libs gtk+-3.0`
 LIBS = -ljansson -lcurl -lm
 THREADS = -lpthread
-OBJS = UI/Window.o Curl/roster.o Helpers/playerHelper.o Helpers/jsonReader.o UI/login.o Curl/cams.o UI/dmx.o HeadshotImporter/headshotRoster.o HeadshotImporter/headshot.o HeadshotImporter/headshotUI.o Curl/schedule.o Curl/survey.o UI/surveyUI.o ServerClient/client.o
+OBJS = UI/Window.o Curl/roster.o Helpers/playerHelper.o Helpers/jsonReader.o UI/login.o Curl/cams.o UI/dmx.o HeadshotImporter/headshotRoster.o HeadshotImporter/headshot.o HeadshotImporter/headshotUI.o Curl/schedule.o Curl/survey.o UI/surveyUI.o ServerClient/client.o ServerClient/server.o
 
 program: $(OBJS)
 	$(CC) -o program $(OBJS) $(GTK_LIBS) $(LIBS)
@@ -18,6 +18,9 @@ HeadshotImporter/headshotRoster.o: HeadshotImporter/headshotRoster.c HeadshotImp
 	
 ClientServer/client.o: ClientServer/client.c ClientServer/client.h
 	$(CC) -c ClientServer/client.c -o ClientServer/client.o $(THREADS)
+
+ClientServer/server.o: ClientServer/server.c ClientServer/server.h
+	$(CC) -c ClientServer/server.c -o ClientServer/server.o $(THREADS)
 
 UI/Window.o: UI/Window.c Curl/roster.h UI/dmx.h
 	$(CC) -c UI/Window.c -o UI/Window.o $(GTK_LIBS)

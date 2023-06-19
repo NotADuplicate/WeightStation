@@ -9,6 +9,7 @@ typedef struct {
     char HeadshotFilepath[50];
     char UniformNumber[4];
     float weight;
+    int weighed; //0 is false, 1 is true
 } Player;
 
 struct MemoryStruct {
@@ -27,5 +28,4 @@ char* get_token(const char* baseUrl, const char *username, const char *password,
 char *send_weight(const char* baseUrl, const char* weight, int playerId, int weightTypeId, double time, int teamIndex);
 
 char* get_existing_token(int teamIndex);
-
 #endif /* CURL_H */

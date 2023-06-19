@@ -9,6 +9,7 @@
 #include "../Curl/survey.h"
 #include "../UI/surveyUI.h"
 #include "../ServerClient/client.h"
+#include "../ServerClient/server.h"
 #include "Window.h"
 #include <unistd.h>
 #include <time.h>
@@ -42,6 +43,8 @@ int teamIndex = 0;
 int overridden = 0; //0 if regular, 1 if manual override
 teamStruct teams[MAX_TEAMS];
 enum View view = MAIN_WINDOW;
+GtkWidget *main_window;
+int connected = 0;
 
 //Images
 GdkPixbuf *forwardArrow;
@@ -49,9 +52,17 @@ GdkPixbuf *backArrow;
 GdkPixbuf *oasisLogo;
 GdkPixbuf *changeTeam;
 GdkPixbuf *emptyImage;
+GdkPixbuf *checkImage;
+GdkPixbuf *XImage;
 
 gdouble distFunction(gdouble x1, gdouble y1, gdouble x2, gdouble y2) {
 	return pow(pow(x1 - x2, 2) + pow(y1 - y2, 2),0.5);
+}
+
+void update_weighed(int team_index, int player_index) {
+    players[player_index].weighed = 1;
+    gtk_widget_queue_draw(main_window);
+    printf("UPDATED %s\n",players[player_index].UniformNumber);
 }
 
 void cleanup() {
@@ -95,6 +106,8 @@ void load_global_images() {
     load_image(&oasisLogo,"Resources/OASIS_logo.png",100);
     load_image(&changeTeam,"Resources/Choose_Team.png",100);
     load_image(&emptyImage,"Resources/Empty.png",260);
+    load_image(&checkImage,"Resources/Checkmark.png",20);
+    load_image(&XImage,"Resources/Red X.png",20);
 }
 
 void load_globals(int teamNum) {
@@ -183,13 +196,35 @@ static gboolean time_handler(GtkWidget *widget) {
         else
             mode = WEIGH_OUT;
             
-        int connected = check_connection();
-        printf("Connected to client: %i\n",connected);
-            
         // Invalidate the widget so it will be redrawn
         gtk_widget_queue_draw(widget);
     }
     //printf("Tried to handle time: %i\n", overridden);
+
+    return G_SOURCE_CONTINUE;
+}
+
+void disconnect() {
+    connected = 0;
+    gtk_widget_queue_draw(main_window);
+    start_client(settings->ip,&connected);
+}
+
+static gboolean connection_checker(GtkWidget *widget) {
+    /*int new_connected = check_connection();
+    printf("Connected to server: %i\n",connected);
+    
+    // Invalidate the widget so it will be redrawn
+    
+    g_timeout_add_seconds(3, (GSourceFunc) connection_checker, (gpointer) widget); // every 60 seconds recheck if in timeout
+    
+    if(new_connected != connected) {
+        connected = new_connected;
+        //if(connected == 0) //if not connected, try to reconnect
+          //  start_client(settings->ip, &connected);
+        if(view == MAIN_WINDOW)
+            gtk_widget_queue_draw(widget);
+    }*/
 
     return G_SOURCE_CONTINUE;
 }
@@ -227,6 +262,7 @@ void submit_weight(SubmitData *data) {
         
     free(send_weight(settings->baseUrl,entry,players[sorted[playerIndex]].Id,type,rawtime_double,teamIndex));
     players[playerIndex].weight = atoi(entry);
+    players[playerIndex].weighed = 1;
     
     printf("%i\n",settings->survey);
     gtk_widget_destroy(data->window);
@@ -236,8 +272,13 @@ void submit_weight(SubmitData *data) {
     }
     else
         view = MAIN_WINDOW;
-    if(settings->server == 0)
+    if(settings->server == 0) //send weight to server
         send_weighed(teamIndex, playerIndex);
+    else {//send weight to clients
+        int message[3] = {0,teamIndex,playerIndex};
+    }
+        
+    gtk_widget_queue_draw(main_window);
 }
 
 void create_weigh_input(GdkPixbuf *pixbuf, const char *text, int playerIndex) {
@@ -413,7 +454,7 @@ void draw_image(cairo_t *cr, int x, int y, GdkPixbuf *pixbuf) {
 
 void draw_circle(cairo_t *cr, int i, int player) { //double xp, double yp, double radius, double r, double g, double b) {
     //printf("Trying to draw player %i\n",player);
-    if(players[player].weight != 0)
+    if(players[player].weighed == 1) //if player has weighed in
         cairo_set_source_rgb(cr, settings->completedRGB[0],settings->completedRGB[1],settings->completedRGB[2]); //they have been weighed so display complete RGB
     else
         cairo_set_source_rgb(cr, settings->incompletedRGB[0],settings->incompletedRGB[1],settings->incompletedRGB[2]); //they have not been weighed so display other RGB
@@ -432,7 +473,7 @@ gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data) {
     //Draw text
     cairo_set_source_rgb(cr, 255, 255, 255); // Sets the color to white for the text
     cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, 65); // Sets the text size
+    cairo_set_font_size(cr, 50); // Sets the text size
     cairo_move_to(cr, 280,80); // Sets the position where the text will start
     cairo_show_text(cr, "WEIGHT STATION"); // The text string to draw
     cairo_set_font_size(cr, 15); // Sets the text size
@@ -455,6 +496,7 @@ gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data) {
         
         g_timeout_add_seconds(10, (GSourceFunc) time_handler, (gpointer) widget); // every 60 seconds recheck if in timeout
     }
+    
     if(mode != WAITING) {
         g_timeout_add_seconds(60, (GSourceFunc) time_handler, (gpointer) widget); // every 60 seconds recheck if in timeout
         int playersDrawn = *numPlayers_pointer;
@@ -462,11 +504,11 @@ gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data) {
         if(playerPerPage*(pageNum+1) < playersDrawn) //set players drawn to whichever is less, max players or 15 on this page
             playersDrawn = playerPerPage*(pageNum+1);
         if(drawn == 1) {
-        printf("Players drawn to: %i\n",playersDrawn);
-        for (int i = playerPerPage*pageNum; i < playersDrawn; i++) {
-            draw_circle(cr,circleNum, sorted[i]);
-            circleNum++;
-        }
+            printf("Players drawn to: %i\n",playersDrawn);
+            for (int i = playerPerPage*pageNum; i < playersDrawn; i++) {
+                draw_circle(cr,circleNum, sorted[i]);
+                circleNum++;
+            }
         //drawn = 0;
         }
         if(pageNum < settings->numPages)
@@ -474,8 +516,26 @@ gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data) {
         if(pageNum > 0)
             draw_image(cr,BACK_ARROW_X,BACK_ARROW_Y,backArrow);
         }
-        draw_image(cr,LOGO_X,LOGO_Y,oasisLogo);
-        draw_image(cr,TEAM_X,LOGO_Y,changeTeam);
+        
+    draw_image(cr,LOGO_X,LOGO_Y,oasisLogo);
+    draw_image(cr,TEAM_X,LOGO_Y,changeTeam);
+    
+    //Draw connected text
+    cairo_set_source_rgb(cr, 255, 255, 255); // Sets the color to white for the text
+    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+    cairo_set_font_size(cr, 18); // Sets the text size      
+    cairo_move_to(cr, 750,60); // Sets the position where the text will start  
+    cairo_show_text(cr, "DMX: "); // The text string to draw
+    if(settings->server == 0) { //if client draw if connected
+        
+        cairo_move_to(cr, 750,80); // Sets the position where the text will start
+        cairo_show_text(cr, "Server: "); // The text string to draw
+        printf("Connection drawn: %i\n", connected);
+        if(connected != 0)
+            draw_image(cr,825,76,checkImage);
+        else
+            draw_image(cr,825,76,XImage);
+    }
             
     return FALSE;
 }
@@ -493,7 +553,6 @@ gboolean on_button_press_event(GtkWidget *widget, GdkEventButton *event, gpointe
 
 void create_main_window() {
     view = MAIN_WINDOW;
-    GtkWidget *window;
     GtkWidget *darea;
     GtkWidget *overlay;
     GtkWidget *fixed_container;
@@ -502,7 +561,7 @@ void create_main_window() {
     /*window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     overlay = gtk_overlay_new();
     gtk_container_add(GTK_CONTAINER(window), overlay);*/
-    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     overlay = gtk_overlay_new();
 
     GdkDisplay* Display = gdk_display_get_default();
@@ -511,7 +570,7 @@ void create_main_window() {
     //gtk_style_context_add_provider_for_screen(Screen, GTK_STYLE_PROVIDER(Provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
     //gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(Provider), "* { background-color: rgb(44,67,102); }", -1, NULL); //create background color
 
-    gtk_widget_set_name(window, "main_window");
+    gtk_widget_set_name(main_window, "main_window");
 
     GtkCssProvider *Provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(Provider),
@@ -522,17 +581,17 @@ void create_main_window() {
                                             GTK_STYLE_PROVIDER(Provider), 
                                             GTK_STYLE_PROVIDER_PRIORITY_USER);
 
-    gtk_container_add(GTK_CONTAINER(window), overlay);
+    gtk_container_add(GTK_CONTAINER(main_window), overlay);
     
     darea = gtk_drawing_area_new();
     gtk_container_add(GTK_CONTAINER(overlay), darea);
 
     g_signal_connect(G_OBJECT(darea), "draw", G_CALLBACK(on_draw_event), NULL); 
-    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
-    g_signal_connect(window, "button-press-event", G_CALLBACK(on_button_press_event), NULL);
+    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    g_signal_connect(main_window, "button-press-event", G_CALLBACK(on_button_press_event), NULL);
 
-    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
-    gtk_window_set_default_size(GTK_WINDOW(window), 1080, 1920); 
+    gtk_window_set_position(GTK_WINDOW(main_window), GTK_WIN_POS_CENTER);
+    gtk_window_set_default_size(GTK_WINDOW(main_window), 1080, 1920); 
     
     fixed_container = gtk_fixed_new();
     gtk_overlay_add_overlay(GTK_OVERLAY(overlay), fixed_container);
@@ -541,9 +600,10 @@ void create_main_window() {
     image = gtk_image_new_from_file("Resources/Pineapple.jpg");
     gtk_fixed_put(GTK_FIXED(fixed_container), image, 300, 300);*/
 
-    gtk_widget_show_all(window);
+    gtk_widget_show_all(main_window);
     
-    time_handler(window);
+    time_handler(main_window);
+    connection_checker(main_window);
 
     gtk_main();
 }
@@ -573,14 +633,22 @@ int main(int argc, char *argv[]) {
     
     printf("Num teams: %i\n",numTeams);
     
-    if(settings->server == 0) //if client, create client
-        create_client(settings->ip); 
+    if(settings->server == 0) {//if client, create client
+        connected = 0;
+        start_client(settings->ip, &connected); 
+        client_update_ptr = update_weighed;
+        disconnect_func_ptr = disconnect;
+    }
+    else {
+        update_weighed_ptr = update_weighed;
+        initialize_server(); //if server, create server
+    }
     
     create_main_window();
     
     cleanup();
     
-    printf("Finished main of Window.c\n");
+    printf("Finished main of Window.c\n"); 
     
     return 0;
 }
