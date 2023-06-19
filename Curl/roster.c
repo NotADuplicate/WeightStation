@@ -10,6 +10,8 @@
 
 char *token[5];
 
+Player *roster_players;
+
 char* concat(const char *s1, const char *s2) {
     char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
     // in real code you would check for errors in malloc here
@@ -285,9 +287,9 @@ char *send_weight(const char* baseUrl, const char* weight, int playerId, int wei
   return json_copy;
 }
 
-
 Player* getPlayers(const char *baseUrl, const char *username, const char *password, int *numPlayers_pointer, int teamIndex) {
   //printf("Trying to get %i players\n",num);
   get_token(baseUrl,username,password,teamIndex);
-  return(process_json(getNames(baseUrl,teamIndex),numPlayers_pointer));
+  roster_players = process_json(getNames(baseUrl,teamIndex),numPlayers_pointer);
+  return(roster_players);
 }

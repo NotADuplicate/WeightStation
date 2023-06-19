@@ -59,4 +59,5 @@ void create_player(json_t *value, int player_count, Player *players) {
             strncpy(players[player_count].UniformNumber, json_string_value(uniform_json), sizeof(players[player_count].UniformNumber) - 1);
             
         players[player_count].weight = 0;
+        players[player_count].weighed = 0;
 }

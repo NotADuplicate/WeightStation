@@ -9,6 +9,7 @@
 #include "../Curl/survey.h"
 #include "../UI/surveyUI.h"
 #include "../ServerClient/client.h"
+#include "../ServerClient/server.h"
 #include "Window.h"
 #include <unistd.h>
 #include <time.h>
@@ -42,6 +43,7 @@ int teamIndex = 0;
 int overridden = 0; //0 if regular, 1 if manual override
 teamStruct teams[MAX_TEAMS];
 enum View view = MAIN_WINDOW;
+GtkWidget *main_window;
 
 //Images
 GdkPixbuf *forwardArrow;
@@ -52,6 +54,12 @@ GdkPixbuf *emptyImage;
 
 gdouble distFunction(gdouble x1, gdouble y1, gdouble x2, gdouble y2) {
 	return pow(pow(x1 - x2, 2) + pow(y1 - y2, 2),0.5);
+}
+
+void update_weighed(int team_index, int player_index) {
+    players[player_index].weighed = 1;
+    gtk_widget_queue_draw(main_window);
+    printf("UPDATED %s\n",players[player_index].UniformNumber);
 }
 
 void cleanup() {
@@ -410,7 +418,7 @@ void draw_image(cairo_t *cr, int x, int y, GdkPixbuf *pixbuf) {
 
 void draw_circle(cairo_t *cr, int i, int player) { //double xp, double yp, double radius, double r, double g, double b) {
     //printf("Trying to draw player %i\n",player);
-    if(players[player].weight != 0)
+    if(players[player].weighed == 1) //if player has weighed in
         cairo_set_source_rgb(cr, settings->completedRGB[0],settings->completedRGB[1],settings->completedRGB[2]); //they have been weighed so display complete RGB
     else
         cairo_set_source_rgb(cr, settings->incompletedRGB[0],settings->incompletedRGB[1],settings->incompletedRGB[2]); //they have not been weighed so display other RGB
@@ -490,7 +498,6 @@ gboolean on_button_press_event(GtkWidget *widget, GdkEventButton *event, gpointe
 
 void create_main_window() {
     view = MAIN_WINDOW;
-    GtkWidget *window;
     GtkWidget *darea;
     GtkWidget *overlay;
     GtkWidget *fixed_container;
@@ -499,7 +506,7 @@ void create_main_window() {
     /*window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     overlay = gtk_overlay_new();
     gtk_container_add(GTK_CONTAINER(window), overlay);*/
-    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    main_window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
     overlay = gtk_overlay_new();
 
     GdkDisplay* Display = gdk_display_get_default();
@@ -508,7 +515,7 @@ void create_main_window() {
     //gtk_style_context_add_provider_for_screen(Screen, GTK_STYLE_PROVIDER(Provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
     //gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(Provider), "* { background-color: rgb(44,67,102); }", -1, NULL); //create background color
 
-    gtk_widget_set_name(window, "main_window");
+    gtk_widget_set_name(main_window, "main_window");
 
     GtkCssProvider *Provider = gtk_css_provider_new();
     gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(Provider),
@@ -519,17 +526,17 @@ void create_main_window() {
                                             GTK_STYLE_PROVIDER(Provider), 
                                             GTK_STYLE_PROVIDER_PRIORITY_USER);
 
-    gtk_container_add(GTK_CONTAINER(window), overlay);
+    gtk_container_add(GTK_CONTAINER(main_window), overlay);
     
     darea = gtk_drawing_area_new();
     gtk_container_add(GTK_CONTAINER(overlay), darea);
 
     g_signal_connect(G_OBJECT(darea), "draw", G_CALLBACK(on_draw_event), NULL); 
-    g_signal_connect(window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
-    g_signal_connect(window, "button-press-event", G_CALLBACK(on_button_press_event), NULL);
+    g_signal_connect(main_window, "destroy", G_CALLBACK(gtk_main_quit), NULL);
+    g_signal_connect(main_window, "button-press-event", G_CALLBACK(on_button_press_event), NULL);
 
-    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
-    gtk_window_set_default_size(GTK_WINDOW(window), 1080, 1920); 
+    gtk_window_set_position(GTK_WINDOW(main_window), GTK_WIN_POS_CENTER);
+    gtk_window_set_default_size(GTK_WINDOW(main_window), 1080, 1920); 
     
     fixed_container = gtk_fixed_new();
     gtk_overlay_add_overlay(GTK_OVERLAY(overlay), fixed_container);
@@ -538,9 +545,9 @@ void create_main_window() {
     image = gtk_image_new_from_file("Resources/Pineapple.jpg");
     gtk_fixed_put(GTK_FIXED(fixed_container), image, 300, 300);*/
 
-    gtk_widget_show_all(window);
+    gtk_widget_show_all(main_window);
     
-    time_handler(window);
+    time_handler(main_window);
 
     gtk_main();
 }
@@ -572,12 +579,16 @@ int main(int argc, char *argv[]) {
     
     if(settings->server == 0) //if client, create client
         create_client(settings->ip); 
+    else {
+        update_weighed_ptr = update_weighed;
+        initialize_server(); //if server, create server
+    }
     
     create_main_window();
     
     cleanup();
     
-    printf("Finished main of Window.c\n");
+    printf("Finished main of Window.c\n"); 
     
     return 0;
 }
