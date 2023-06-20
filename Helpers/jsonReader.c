@@ -261,6 +261,15 @@ Settings* load_settings(const char* filename, int teamIndex) {
     }
     settings->weighInOffset = atoi(json_string_value(weighIn));
     
+    json_t *surveyTimer = json_object_get(settingsData, "SurveyTimer");
+    if (!json_is_string(surveyTimer)) {
+        printf("%s\n",json_string_value(surveyTimer));
+        fprintf(stderr, "error: SurveyTimer is not an integer\n");
+        json_decref(root);
+        return NULL;
+    }
+    settings->surveyTimer = atoi(json_string_value(surveyTimer));
+    
     json_t *weighOut = json_object_get(settingsData, "WeighOutOffset");
     if (!json_is_string(weighOut)) {
         printf("%s\n",json_string_value(weighOut));

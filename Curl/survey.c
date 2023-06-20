@@ -36,7 +36,7 @@ void create_question(json_t *value, int question_count, surveyQuestion *question
             
 }
 
-surveyQuestion *process_survey_json(const char *json_string) {
+surveyQuestion *process_survey_json(const char *json_string, int *count_ptr) {
   //printf("Processing json in roster.c: \n %s\n",json_string);
     json_error_t error;
     json_t *root;
@@ -67,10 +67,11 @@ surveyQuestion *process_survey_json(const char *json_string) {
 
     json_decref(root);
     //free(json_string);
+    *count_ptr = question_count; 
     return(questions);
 }
 
-surveyQuestion *get_survey(const char* baseUrl, int teamIndex) {
+surveyQuestion *get_survey(const char* baseUrl, int teamIndex, int *count_ptr) {
   CURL *curl;
   CURLcode res;
   char *json_copy;
@@ -128,7 +129,7 @@ surveyQuestion *get_survey(const char* baseUrl, int teamIndex) {
   }
 
   curl_global_cleanup();
-  printf("%s\n",json_copy);
+  //printf("%s\n",json_copy);
 
-  return process_survey_json(json_copy);
+  return process_survey_json(json_copy, count_ptr);
 }

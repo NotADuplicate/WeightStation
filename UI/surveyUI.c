@@ -86,7 +86,12 @@ GtkWidget* create_question_box(int val, char* question_text, int question_index)
     return box;
 }
 
-void create_survey_window(surveyQuestion *survey) {
+gboolean survey_timeout(gpointer window) {
+    gtk_widget_destroy(GTK_WIDGET(window));
+    return G_SOURCE_REMOVE;
+}
+
+void create_survey_window(surveyQuestion *survey, int numQuestions, int timer) {
     printf("Created survey\n");
     GtkCssProvider *provider;
     provider = gtk_css_provider_new ();
@@ -113,12 +118,14 @@ void create_survey_window(surveyQuestion *survey) {
     g_signal_connect(ok_button, "clicked", G_CALLBACK(submit_survey), dialog);
     gtk_dialog_add_action_widget(GTK_DIALOG(dialog), ok_button, GTK_RESPONSE_OK);
 
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < numQuestions; i++) {
         if (survey[i].responseType > 0 && survey[i].responseType < 5) {
             GtkWidget *question_box = create_question_box(survey[i].responseType, survey[i].Question,i);
             gtk_container_add(GTK_CONTAINER(content_area), question_box);
         }
     }
+    
+    g_timeout_add_seconds(timer/1000, (GSourceFunc)survey_timeout, (gpointer)dialog); //time out
 
     printf("About to show dialog\n");
     gtk_widget_show_all(dialog);

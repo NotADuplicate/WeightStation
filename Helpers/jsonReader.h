@@ -18,6 +18,7 @@ typedef struct Settings {
     int server; //1 true, 0 = client
     char *ip; //ip of server
     char *port; //port of the server
+    int surveyTimer;
 } Settings;
 
 Settings* load_settings(const char* filename, int teamIndex);

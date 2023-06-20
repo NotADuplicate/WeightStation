@@ -37,6 +37,7 @@ typedef struct {
     char *token;
     practiceStruct *teamPractices; 
     surveyQuestion *survey;
+    int surveyNumQuestions;
 } teamStruct;
 
 void create_main_window();

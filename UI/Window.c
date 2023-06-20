@@ -45,6 +45,7 @@ teamStruct teams[MAX_TEAMS];
 enum View view = MAIN_WINDOW;
 GtkWidget *main_window;
 int connected = 0;
+int dmx_connected = 1;
 
 //Images
 GdkPixbuf *forwardArrow;
@@ -115,7 +116,7 @@ void load_globals(int teamNum) {
     printf("Settings teams\n");
     teams[teamNum].teamSettings = load_settings("settings.json",teamNum);
     teams[teamNum].teamCircles = malloc(teams[teamNum].teamSettings->playerPerPage * sizeof(circleStruct));
-    teams[teamNum].teamPlayers = getPlayers(teams[teamNum].teamSettings->baseUrl,teams[teamNum].teamSettings->username,teams[teamNum].teamSettings->password, numPlayers_pointer, teamNum);
+    teams[teamNum].teamPlayers = getPlayers(teams[teamNum].teamSettings->baseUrl,teams[teamNum].teamSettings->username,teams[teamNum].teamSettings->password, numPlayers_pointer, teamNum, &dmx_connected);
     teams[teamNum].teamSorted = sort_players(teams[teamNum].teamPlayers,*numPlayers_pointer);
     teams[teamNum].teamHeadshots = malloc(*numPlayers_pointer * sizeof(GdkPixbuf *));
     teams[teamNum].teamPractices = get_next_practices(teams[teamNum].teamSettings->baseUrl,teamNum);
@@ -161,7 +162,7 @@ void load_globals(int teamNum) {
             }
         }
     }
-    teams[teamNum].survey = get_survey(teams[teamNum].teamSettings->baseUrl,teamNum);
+    teams[teamNum].survey = get_survey(teams[teamNum].teamSettings->baseUrl,teamNum, &teams[teamNum].surveyNumQuestions);
     //create_survey_window(teams[teamNum].survey);
 }
 
@@ -267,7 +268,7 @@ void submit_weight(SubmitData *data) {
     printf("%i\n",settings->survey);
     gtk_widget_destroy(data->window);
     if(settings->survey == 1) {
-        create_survey_window(teams[teamIndex].survey);
+        create_survey_window(teams[teamIndex].survey, teams[teamIndex].surveyNumQuestions,settings->surveyTimer);
         view = MAIN_WINDOW;
     }
     else
@@ -279,6 +280,14 @@ void submit_weight(SubmitData *data) {
     }
         
     gtk_widget_queue_draw(main_window);
+}
+
+gboolean auto_close_window(gpointer window) {
+    if(view == WEIGH_WINDOW) {
+        gtk_widget_destroy(GTK_WIDGET(window));
+        view = MAIN_WINDOW;
+    }
+    return G_SOURCE_REMOVE;
 }
 
 void create_weigh_input(GdkPixbuf *pixbuf, const char *text, int playerIndex) {
@@ -331,13 +340,11 @@ void create_weigh_input(GdkPixbuf *pixbuf, const char *text, int playerIndex) {
 
     // connect button click event with callback that closes the window and call the submit function
     g_signal_connect_swapped(button, "clicked", G_CALLBACK(submit_weight), submit_data);
-    //g_signal_connect(button, "clicked", G_CALLBACK(submit_weight), NULL);
+    
+    g_timeout_add_seconds(10, (GSourceFunc)auto_close_window, (gpointer)window); //time out
 
     // show all widgets in the window
     gtk_widget_show_all(window);
-
-    // enter the main loop and start processing events
-    //gtk_main();
     printf("Finished weigh window\n");
 }
 
@@ -526,8 +533,8 @@ gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data) {
     cairo_set_font_size(cr, 18); // Sets the text size      
     cairo_move_to(cr, 750,60); // Sets the position where the text will start  
     cairo_show_text(cr, "DMX: "); // The text string to draw
-    if(settings->server == 0) { //if client draw if connected
         
+    if(settings->server == 0) { //if client draw if connected
         cairo_move_to(cr, 750,80); // Sets the position where the text will start
         cairo_show_text(cr, "Server: "); // The text string to draw
         printf("Connection drawn: %i\n", connected);
@@ -536,6 +543,10 @@ gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data) {
         else
             draw_image(cr,825,76,XImage);
     }
+    if(dmx_connected != 0)
+        draw_image(cr,825,56,checkImage);
+    else
+        draw_image(cr,825,56,XImage);
             
     return FALSE;
 }
@@ -643,6 +654,8 @@ int main(int argc, char *argv[]) {
         update_weighed_ptr = update_weighed;
         initialize_server(); //if server, create server
     }
+    
+    resend_weights(settings->baseUrl);
     
     create_main_window();
     

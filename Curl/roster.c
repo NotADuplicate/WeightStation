@@ -5,12 +5,14 @@
 #include <jansson.h>
 #include "roster.h"
 #include "../Helpers/playerHelper.h"
+#include "../UI/error.h"
 
 #define MAX_TEAMS
 
 char *token[5];
 
 Player *roster_players;
+int *dmx_connected_ptr;
 
 char* concat(const char *s1, const char *s2) {
     char *result = malloc(strlen(s1) + strlen(s2) + 1); // +1 for the null-terminator
@@ -62,9 +64,10 @@ char* get_token(const char* baseUrl, const char *username, const char *password,
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
 
     res = curl_easy_perform(curl);
-    if(res != CURLE_OK)
-      fprintf(stderr, "curl_easy_perform() failed: %s\n",
-              curl_easy_strerror(res));
+    if(res != CURLE_OK) {
+      fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+      show_error_window(concat("login failed: ", curl_easy_strerror(res)));
+    }
     else {
       //printf("%lu bytes retrieved\n", (long)chunk.size);
       
@@ -75,6 +78,7 @@ char* get_token(const char* baseUrl, const char *username, const char *password,
       
       if(!root){
         fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
+        show_error_window(concat("error: ", error.text));
         return NULL;
       }
 
@@ -212,6 +216,57 @@ Player* process_json(const char *json_string, int *numPlayers_pointer) {
     return(players);
 }
 
+void store_weight(const char* weight, int playerId, int weightTypeId, double time, int teamIndex) {
+    *dmx_connected_ptr = 0;
+    FILE *file;
+    json_t *root;
+    json_error_t error;
+
+    file = fopen("weights.json", "r");
+
+    // Check if the file exists
+    if (file) {
+        fclose(file);
+        // If file exists, load its content
+        root = json_load_file("weights.json", 0, &error);
+        if(!root) {
+            // If error in reading JSON
+            fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
+            return;
+        }
+    } else {
+        // If file does not exist, create a new JSON array
+        root = json_array();
+    }
+
+    // Create new JSON object and populate it with function arguments
+    json_t *new_object = json_object();
+    json_object_set_new(new_object, "weight", json_string(weight));
+    json_object_set_new(new_object, "playerId", json_integer(playerId));
+    json_object_set_new(new_object, "weightTypeId", json_integer(weightTypeId));
+    json_object_set_new(new_object, "time", json_real(time));
+    json_object_set_new(new_object, "teamIndex", json_integer(teamIndex));
+
+    // Add new object to the root array
+    json_array_append_new(root, new_object);
+
+    // Write updated JSON array to the file
+    file = fopen("weights.json", "w");
+    if(!file) {
+        fprintf(stderr, "error: cannot open file\n");
+        json_decref(root);
+        return;
+    }
+
+    if(json_dumpf(root, file, JSON_INDENT(2)) != 0) {
+        fprintf(stderr, "error: cannot write JSON to file\n");
+    }
+
+    // Cleanup
+    json_decref(root);
+    fclose(file);
+}
+
 char *send_weight(const char* baseUrl, const char* weight, int playerId, int weightTypeId, double time, int teamIndex) {
   CURL *curl;
   CURLcode res;
@@ -251,9 +306,11 @@ char *send_weight(const char* baseUrl, const char* weight, int playerId, int wei
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
 
     res = curl_easy_perform(curl);
-    if(res != CURLE_OK)
-      fprintf(stderr, "curl_easy_perform() failed: %s\n",
-              curl_easy_strerror(res));
+    if(res != CURLE_OK) {
+      fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+      store_weight(weight, playerId, weightTypeId, time, teamIndex);
+      return NULL;
+    }
     else {
       printf("%lu bytes retrieved\n", (long)chunk.size);
       
@@ -287,8 +344,59 @@ char *send_weight(const char* baseUrl, const char* weight, int playerId, int wei
   return json_copy;
 }
 
-Player* getPlayers(const char *baseUrl, const char *username, const char *password, int *numPlayers_pointer, int teamIndex) {
+void resend_weights(const char *url) {
+    FILE *file;
+    json_t *root;
+    json_error_t error;
+
+    file = fopen("weights.json", "r");
+
+    // Check if the file exists
+    if (!file) {
+        fprintf(stderr, "error: cannot open file\n");
+        return;
+    }
+
+    // If file exists, load its content
+    root = json_loadf(file, 0, &error);
+    if (!root) {
+        // If error in reading JSON
+        fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
+        return;
+    }
+
+    if(!json_is_array(root)) {
+        fprintf(stderr, "error: root is not an array\n");
+        json_decref(root);
+        return;
+    }
+
+    // Loop through all the elements in the array
+    size_t index;
+    json_t *value;
+    json_array_foreach(root, index, value) {
+        const char* weight = json_string_value(json_object_get(value, "weight"));
+        int playerId = json_integer_value(json_object_get(value, "playerId"));
+        int weightTypeId = json_integer_value(json_object_get(value, "weightTypeId"));
+        double time = json_real_value(json_object_get(value, "time"));
+        int teamIndex = json_integer_value(json_object_get(value, "teamIndex"));
+
+        // Call send_weight function
+        send_weight(url, weight, playerId, weightTypeId, time, teamIndex);
+    }
+
+    // Cleanup
+    json_decref(root);
+    fclose(file);
+    
+    if(remove("weights.json") != 0) {
+      fprintf(stderr, "error: cannot delete file\n");
+    }
+}
+
+Player* getPlayers(const char *baseUrl, const char *username, const char *password, int *numPlayers_pointer, int teamIndex, int *ptr) {
   //printf("Trying to get %i players\n",num);
+  dmx_connected_ptr = ptr;
   get_token(baseUrl,username,password,teamIndex);
   roster_players = process_json(getNames(baseUrl,teamIndex),numPlayers_pointer);
   return(roster_players);

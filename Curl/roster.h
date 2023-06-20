@@ -17,7 +17,7 @@ struct MemoryStruct {
   size_t size;
 };
 
-Player* getPlayers(const char *baseUrl, const char *username, const char *password, int *numPlayers_pointer, int teamIndex);
+Player* getPlayers(const char *baseUrl, const char *username, const char *password, int *numPlayers_pointer, int teamIndex, int *connected_ptr);
 
 char* concat(const char *s1, const char *s2);
 
@@ -28,4 +28,6 @@ char* get_token(const char* baseUrl, const char *username, const char *password,
 char *send_weight(const char* baseUrl, const char* weight, int playerId, int weightTypeId, double time, int teamIndex);
 
 char* get_existing_token(int teamIndex);
+
+void resend_weights(const char *url);
 #endif /* CURL_H */
