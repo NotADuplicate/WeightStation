@@ -10,6 +10,8 @@ typedef struct {
     char UniformNumber[4];
     float weight;
     int weighed; //0 is false, 1 is true
+    char Position[6];
+    char LockerNumber[4];
 } Player;
 
 struct MemoryStruct {
@@ -30,4 +32,6 @@ char *send_weight(const char* baseUrl, const char* weight, int playerId, int wei
 char* get_existing_token(int teamIndex);
 
 void resend_weights(const char *url);
+
+void set_last_weight(const char *baseUrl, int teamIndex, Player *players, size_t num_players);
 #endif /* CURL_H */

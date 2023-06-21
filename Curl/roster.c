@@ -178,7 +178,7 @@ char *getNames(const char* baseUrl, int teamIndex) {
 }
 
 Player* process_json(const char *json_string, int *numPlayers_pointer) {
-  //printf("Processing json in roster.c: \n %s\n",json_string);
+    printf("Processing json in roster.c: \n %s\n",json_string);
     json_error_t error;
     json_t *root;
     int player_count = 0;
@@ -400,4 +400,118 @@ Player* getPlayers(const char *baseUrl, const char *username, const char *passwo
   get_token(baseUrl,username,password,teamIndex);
   roster_players = process_json(getNames(baseUrl,teamIndex),numPlayers_pointer);
   return(roster_players);
+}
+
+char *get_weights_json(const char* baseUrl, int teamIndex) {
+  CURL *curl;
+  CURLcode res;
+  char *json_copy;
+  struct curl_slist *headers = NULL;
+
+  struct MemoryStruct chunk;
+
+  chunk.memory = malloc(1);  
+  chunk.size = 0;    
+
+  curl_global_init(CURL_GLOBAL_DEFAULT);
+
+  curl = curl_easy_init();
+  if(curl) {
+	const char *relative = "/OasisService/api/OASIS/Weights/MostRecent?AudienceTypeId=1&AudienceId=0&WeightTypeId=1";
+    curl_easy_setopt(curl, CURLOPT_URL, concat(baseUrl,relative));
+
+    // Add headers
+    printf("Getting names with token from team %i\n",teamIndex);
+    headers = curl_slist_append(headers, concat("Authorization: Bearer ",token[teamIndex]));
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)&chunk);
+
+    res = curl_easy_perform(curl);
+    if(res != CURLE_OK)
+      fprintf(stderr, "curl_easy_perform() failed: %s\n",
+              curl_easy_strerror(res));
+    else {
+      printf("%lu bytes retrieved\n", (long)chunk.size);
+      
+      // JSON parsing begins here
+      json_error_t error;
+      json_t *root;
+      root = json_loads(chunk.memory, 0, &error);
+      json_copy = strdup(chunk.memory);
+      
+      if(!root){
+        fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
+        return NULL;
+      }
+
+      // TODO: Add JSON parsing logic here.
+
+      // cleanup JSON
+      json_decref(root);
+    }
+
+    curl_easy_cleanup(curl);
+    curl_slist_free_all(headers); // free the list of headers
+
+    free(chunk.memory);
+  }
+
+  curl_global_cleanup();
+
+  return json_copy;
+}
+
+void update_last_weigh_in(const char *json_array_str, Player *players, size_t num_players) {
+    json_error_t error;
+    json_t *json_array = json_loads(json_array_str, 0, &error);
+
+    if (!json_array) {
+        fprintf(stderr, "Error parsing JSON: %s\n", error.text);
+        return;
+    }
+
+    if (!json_is_array(json_array)) {
+        fprintf(stderr, "Error: root element of JSON is not an array.\n");
+        json_decref(json_array);
+        return;
+    }
+
+    size_t index;
+    json_t *json_player;
+    json_array_foreach(json_array, index, json_player) {
+        json_t *json_id = json_object_get(json_player, "PlayerId");
+        if (!json_id || !json_is_integer(json_id)) {
+            fprintf(stderr, "Error: PlayerId is missing or not an integer in JSON object at index %zu\n", index);
+            continue;
+        }
+
+        json_t *json_value = json_object_get(json_player, "Value");
+        if (!json_value || !json_is_real(json_value)) {
+            fprintf(stderr, "Error: Value is missing or not a number in JSON object at index %zu\n", index);
+            continue;
+        }
+
+        int id = json_integer_value(json_id);
+        double value = json_real_value(json_value);
+
+        for (size_t i = 0; i < num_players; i++) {
+            if (players[i].Id == id) {
+                printf("Matched player %s\n",players[i].UniformNumber);
+                players[i].weight = value;
+                break;
+            }
+        }
+    }
+
+    json_decref(json_array);
+}
+
+void set_last_weight(const char *baseUrl, int teamIndex, Player *players, size_t num_players) {
+  printf("Setting last weight\n");
+  char *weights_json = get_weights_json(baseUrl,teamIndex);
+  printf("%s\n",weights_json);
+  update_last_weigh_in(weights_json,players,num_players);
 }

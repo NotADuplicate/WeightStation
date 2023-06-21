@@ -1,5 +1,6 @@
 #include <gtk/gtk.h>
 #include "../Curl/survey.h"
+#include "surveyUI.h"
 
 typedef struct {
     GtkWidget *button_box;
@@ -8,6 +9,8 @@ typedef struct {
 } ButtonIndices;
 
 int selected_options[6];
+GdkPixbuf *image1;
+GdkPixbuf *clicked1;
 
 void submit_survey(GtkWidget *widget, gpointer user_data) {
     GtkWidget *dialog = GTK_WIDGET(user_data);
@@ -21,6 +24,7 @@ void submit_survey(GtkWidget *widget, gpointer user_data) {
 }
 
 void on_button_toggled(GtkToggleButton *button, ButtonIndices *data) {
+    GtkWidget *image;
     if (gtk_toggle_button_get_active(button)) {
         printf("Question %d option %d clicked\n", data->question_index+1, data->option_index+1);
         selected_options[data->question_index] = data->option_index+1;
@@ -33,9 +37,13 @@ void on_button_toggled(GtkToggleButton *button, ButtonIndices *data) {
             GtkWidget *child_button = gtk_bin_get_child(GTK_BIN(iter->data));
 
             if (GTK_TOGGLE_BUTTON(child_button) != button) {
-                gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(child_button), FALSE);
+                //gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(child_button), FALSE);
+                image = gtk_image_new_from_pixbuf(image1);
+                gtk_button_set_image(GTK_BUTTON(child_button), image);
             }
         }
+        image = gtk_image_new_from_pixbuf(clicked1);
+        gtk_button_set_image(GTK_BUTTON(button), image);
 
         g_list_free(children);
     }
@@ -63,26 +71,41 @@ GtkWidget* create_question_box(int val, char* question_text, int question_index)
     button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
     gtk_container_add(GTK_CONTAINER(center_box), button_box);
 
-    for (int i = 0; i < (val == 4 ? 5 : val); i++) {
-        char buffer[10];
-        sprintf(buffer, "Option %d", i+1);
+for (int i = 0; i < (val == 4 ? 5 : val); i++) {
+    // Create an image
+    GtkWidget *image = gtk_image_new_from_file("Resources/default_1.png");
 
-        GtkWidget *button = gtk_toggle_button_new_with_label(buffer);
-        gtk_widget_set_size_request(button, 150, 100);
-        gtk_style_context_add_class(gtk_widget_get_style_context(button), "my-toggle-button");
+    GtkWidget *button = gtk_toggle_button_new();
+    gtk_button_set_image(GTK_BUTTON(button), image); // Set the image
+    gtk_widget_set_size_request(button, 150, 100);
 
-        // Allocate and fill the ButtonIndices structure
-        ButtonIndices *data = malloc(sizeof(ButtonIndices));
-        data->button_box = button_box;
-        data->question_index = question_index;
-        data->option_index = i;
+    // Remove button border and background
+    GtkStyleContext *style_context = gtk_widget_get_style_context(button);
+    GtkCssProvider *provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(provider,
+                                    "* {"
+                                    "background-color: rgba(0, 0, 0, 0);"
+                                    "border: 0;"
+                                    "}",
+                                    -1, NULL);
+    gtk_style_context_add_provider(style_context, 
+                                   GTK_STYLE_PROVIDER(provider), 
+                                   GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(provider);
 
-        g_signal_connect_data(button, "toggled", G_CALLBACK(on_button_toggled), data, (GClosureNotify)free, 0);
+    // Allocate and fill the ButtonIndices structure
+    ButtonIndices *data = malloc(sizeof(ButtonIndices));
+    data->button_box = button_box;
+    data->question_index = question_index;
+    data->option_index = i;
 
-        GtkWidget *event_box = gtk_event_box_new();
-        gtk_container_add(GTK_CONTAINER(event_box), button);
-        gtk_box_pack_start(GTK_BOX(button_box), event_box, FALSE, FALSE, 0);
-    }
+    g_signal_connect_data(button, "toggled", G_CALLBACK(on_button_toggled), data, (GClosureNotify)free, 0);
+
+    GtkWidget *event_box = gtk_event_box_new();
+    gtk_container_add(GTK_CONTAINER(event_box), button);
+    gtk_box_pack_start(GTK_BOX(button_box), event_box, FALSE, FALSE, 0);
+}
+
     return box;
 }
 
@@ -134,3 +157,65 @@ void create_survey_window(surveyQuestion *survey, int numQuestions, int timer) {
     printf("About to destroy dialog\n");
     //gtk_widget_destroy(dialog);
 }
+
+gboolean survey_draw_event(GtkWidget *widget, cairo_t *cr, SurveyDrawData *data) {
+    int yp = 50;
+    for (int i = 0; i < data->numQuestions; i++) {
+        if (data->survey[i].responseType > 0 && data->survey[i].responseType < 5) {
+            cairo_set_source_rgb(cr, 0, 0, 0); // Sets the color to black for the text
+            cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+            cairo_set_font_size(cr, 30); // Sets the text size
+
+            cairo_text_extents_t extents;
+            cairo_text_extents(cr, data->survey[i].Question, &extents); 
+
+            // calculate the x position to start drawing the text such that it is centered
+            double x_position = 400 - extents.width/2;
+
+            cairo_move_to(cr, x_position, yp); // Sets the position where the text will start
+            cairo_show_text(cr, data->survey[i].Question); // The text string to draw
+            yp += 100;
+        }
+    }
+    gdk_cairo_set_source_pixbuf(cr, image1, 0, 20);
+    cairo_paint(cr);
+}
+
+/*void create_survey_window(surveyQuestion *survey, int numQuestions, int timer) {
+    GtkWidget *window;
+    GtkWidget *grid;
+    GtkWidget *label;
+    GtkWidget *image;
+    GtkWidget *darea;
+    GtkWidget *overlay;
+    //submit_weight_func = submit_func;
+
+    // create new window
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window), "Survey Window");
+
+    // Change dimensions here for a larger window
+    gtk_window_set_default_size(GTK_WINDOW(window), 1000, 800);
+    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
+
+    // Create overlay
+    overlay = gtk_overlay_new();
+    gtk_container_add(GTK_CONTAINER(window), overlay);
+
+    darea = gtk_drawing_area_new();
+    gtk_container_add(GTK_CONTAINER(overlay), darea);
+
+    SurveyDrawData *draw_data = g_new(SurveyDrawData,1);
+    draw_data->numQuestions = numQuestions;
+    draw_data->survey = survey;
+
+    g_signal_connect(G_OBJECT(darea), "draw", G_CALLBACK(survey_draw_event), draw_data);
+
+    //g_signal_connect(window, "button-press-event", G_CALLBACK(weigh_click), NULL);
+
+    g_timeout_add_seconds(timer/1000, (GSourceFunc)survey_timeout, (gpointer)window); //time out
+
+    // show all widgets in the window
+    gtk_widget_show_all(window);
+    printf("Finished survey window\n");
+}*/

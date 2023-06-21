@@ -29,12 +29,14 @@ int* sort_players(Player* players, int num_players) {
 }
 
 void create_player(json_t *value, int player_count, Player *players) {
-        json_t *id_json, *name_json, *headshot_json, *uniform_json;
+        json_t *id_json, *name_json, *headshot_json, *uniform_json, *position_json, *locker_json;
         printf("Getting players json: %i ",player_count);
         id_json = json_object_get(value, "Id");
         name_json = json_object_get(value, "DisplayName");
         headshot_json = json_object_get(value, "Headshot");
         uniform_json = json_object_get(value, "UniformNumber");
+        locker_json = json_object_get(value, "LockerNumber");
+        position_json = json_object_get(value, "Position");
 
         if (!json_is_string(name_json) || !json_is_integer(id_json)) {
             fprintf(stderr, "error: Id or Name is not of correct type\n");
@@ -57,6 +59,16 @@ void create_player(json_t *value, int player_count, Player *players) {
             printf("%s's uniform is not a string\n",players[player_count].Name);
         else
             strncpy(players[player_count].UniformNumber, json_string_value(uniform_json), sizeof(players[player_count].UniformNumber) - 1);
+            
+        if(!json_is_string(locker_json)) 
+            printf("%s's locker is not a string\n",players[player_count].Name);
+        else
+            strncpy(players[player_count].LockerNumber, json_string_value(locker_json), sizeof(players[player_count].LockerNumber) - 1);
+            
+        if(!json_is_string(position_json)) 
+            printf("%s's position is not a string\n",players[player_count].Name);
+        else
+            strncpy(players[player_count].Position, json_string_value(position_json), sizeof(players[player_count].Position) - 1);
             
         players[player_count].weight = 0;
         players[player_count].weighed = 0;

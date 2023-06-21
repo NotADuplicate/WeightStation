@@ -2,11 +2,19 @@
 #ifndef WEIGHUI_H
 #define WEIGHUI_IN
 
+#include "../Curl/roster.h"
+
 typedef struct {
     int playerIndex;
-    GtkWidget *entry;
+    GtkWidget *window;
+    GString *typed_text;
 } SubmitData;
 
-void create_weigh_input(GdkPixbuf *pixbuf, const char *text, int playerIndex, void (*submit_func)(const char *));
+typedef struct {
+    Player *player;
+    GdkPixbuf *image;
+} DrawData;
+
+void create_weigh_input(GdkPixbuf *pixbuf, Player *player, int playerIndex, void (*submit_func)(SubmitData*));
 
 #endif

@@ -22,13 +22,6 @@ typedef struct {
 } circleStruct;
 
 typedef struct {
-    int playerIndex;
-    GtkWidget *entry;
-    GtkWidget *window;
-} SubmitData;
-
-
-typedef struct {
     Player *teamPlayers;
     circleStruct *teamCircles;
     Settings *teamSettings;

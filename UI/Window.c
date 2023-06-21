@@ -5,6 +5,7 @@
 #include "../Helpers/jsonReader.h"
 #include "../UI/login.h"
 #include "../UI/dmx.h"
+#include "../UI/weighUI.h"
 #include "../Curl/schedule.h"
 #include "../Curl/survey.h"
 #include "../UI/surveyUI.h"
@@ -55,6 +56,9 @@ GdkPixbuf *changeTeam;
 GdkPixbuf *emptyImage;
 GdkPixbuf *checkImage;
 GdkPixbuf *XImage;
+extern GdkPixbuf *exitImage;
+extern GdkPixbuf *image1;
+extern GdkPixbuf *clicked1;
 
 gdouble distFunction(gdouble x1, gdouble y1, gdouble x2, gdouble y2) {
 	return pow(pow(x1 - x2, 2) + pow(y1 - y2, 2),0.5);
@@ -109,6 +113,11 @@ void load_global_images() {
     load_image(&emptyImage,"Resources/Empty.png",260);
     load_image(&checkImage,"Resources/Checkmark.png",20);
     load_image(&XImage,"Resources/Red X.png",20);
+    
+    //images for weighUI
+    load_image(&exitImage,"Resources/Exit.png",70);
+    load_image(&image1,"Resources/default_1.png",54);
+    load_image(&clicked1,"Resources/highlighted_1.png",54);
 }
 
 void load_globals(int teamNum) {
@@ -120,6 +129,8 @@ void load_globals(int teamNum) {
     teams[teamNum].teamSorted = sort_players(teams[teamNum].teamPlayers,*numPlayers_pointer);
     teams[teamNum].teamHeadshots = malloc(*numPlayers_pointer * sizeof(GdkPixbuf *));
     teams[teamNum].teamPractices = get_next_practices(teams[teamNum].teamSettings->baseUrl,teamNum);
+    
+    set_last_weight(teams[teamNum].teamSettings->baseUrl,teamNum,teams[teamNum].teamPlayers,*numPlayers_pointer);
     
     printf("Finished setting team stuff\n");
     //Load images
@@ -247,7 +258,7 @@ void destroy() { //when window is closed
 }
 
 void submit_weight(SubmitData *data) {
-    const char *entry = gtk_entry_get_text(GTK_ENTRY(data->entry));
+    char *entry = data->typed_text->str;
     int playerIndex = data->playerIndex;
     g_print("Input: %s\n", entry);
     
@@ -282,15 +293,7 @@ void submit_weight(SubmitData *data) {
     gtk_widget_queue_draw(main_window);
 }
 
-gboolean auto_close_window(gpointer window) {
-    if(view == WEIGH_WINDOW) {
-        gtk_widget_destroy(GTK_WIDGET(window));
-        view = MAIN_WINDOW;
-    }
-    return G_SOURCE_REMOVE;
-}
-
-void create_weigh_input(GdkPixbuf *pixbuf, const char *text, int playerIndex) {
+/*void create_weigh_input(GdkPixbuf *pixbuf, const char *text, int playerIndex) {
     view = WEIGH_WINDOW;
     GtkWidget *window;
     GtkWidget *vbox;
@@ -346,7 +349,7 @@ void create_weigh_input(GdkPixbuf *pixbuf, const char *text, int playerIndex) {
     // show all widgets in the window
     gtk_widget_show_all(window);
     printf("Finished weigh window\n");
-}
+}*/
 
 int clicks = 0;
 gboolean clicked_inside_circle(gdouble event_x, gdouble event_y, GtkWidget *widget) { //get weight
@@ -356,7 +359,7 @@ gboolean clicked_inside_circle(gdouble event_x, gdouble event_y, GtkWidget *widg
             if(dist < circles[i].radius) {
                 gtk_widget_queue_draw(widget);
                 //show_text_input_dialog(widget,sorted[i]);
-                create_weigh_input(images[sorted[i]],players[sorted[i]].Name, sorted[i]);
+                create_weigh_input(images[sorted[i]],&players[sorted[i]], sorted[i],submit_weight);
             }
         }
     }
