@@ -110,7 +110,7 @@ gboolean weigh_draw_event(GtkWidget *widget, cairo_t *cr, DrawData *data) {
     cairo_set_source_rgb(cr, 0, 0, 0); 
         cairo_move_to(cr, 330,300); // Sets the position where the text will start
         char str[80];
-        sprintf(str, "Last Weigh-In:  %.1f lb", data->player->weight);
+        sprintf(str, "Last Weigh-In:  %s lb", data->player->weight);
         cairo_show_text(cr, str); // The text string to draw
         cairo_move_to(cr, 330,360); 
         cairo_show_text(cr, "Weigh-In:        ---"); // The text string to draw
@@ -133,6 +133,7 @@ void create_weigh_input(GdkPixbuf *pixbuf, Player *player, int playerIndex, void
 
     // Change dimensions here for a larger window
     gtk_window_set_default_size(GTK_WINDOW(window), 700, 400);
+    //GtkWindow *undecorated = GTK_WINDOW(window);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
 
     // Create overlay
@@ -141,6 +142,7 @@ void create_weigh_input(GdkPixbuf *pixbuf, Player *player, int playerIndex, void
 
     darea = gtk_drawing_area_new();
     gtk_container_add(GTK_CONTAINER(overlay), darea);
+    //gtk_window_set_decorated(window, FALSE);
 
     DrawData *draw_data = g_new(DrawData,1);
     draw_data->image = pixbuf;

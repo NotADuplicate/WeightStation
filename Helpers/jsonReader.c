@@ -3,6 +3,7 @@
 #include <jansson.h>
 #include <string.h>
 #include "jsonReader.h"
+#include "../HeadshotImporter/headshot.h"
 
 char** get_team_codes(const char *json_file_path, int *numTeams) {
     json_t *root;
@@ -209,6 +210,23 @@ Settings* load_settings(const char* filename, int teamIndex) {
         return NULL;
     }
     settings->ip = strdup(json_string_value(ip));
+    
+    json_t *team_name = json_object_get(settingsData, "Team");
+    if (!json_is_string(team_name)) {
+        fprintf(stderr, "error: Team is not a string\n");
+        json_decref(root);
+        return NULL;
+    }
+    settings->teamName = strdup(json_string_value(team_name));
+    
+    json_t *teamLogo = json_object_get(settingsData, "TeamLogoUrl");
+    if (!json_is_string(teamLogo)) {
+        fprintf(stderr, "error: TeamLogoUrl is not a string\n");
+        json_decref(root);
+        return NULL;
+    }
+    settings->logoUrl = strdup(json_string_value(teamLogo));
+    download_image(settings->logoUrl,"Resources/Logo");
     
     json_t *port = json_object_get(root, "ServerPort");
     if (!json_is_string(port)) {

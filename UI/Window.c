@@ -57,8 +57,9 @@ GdkPixbuf *emptyImage;
 GdkPixbuf *checkImage;
 GdkPixbuf *XImage;
 extern GdkPixbuf *exitImage;
-extern GdkPixbuf *image1;
-extern GdkPixbuf *clicked1;
+extern GdkPixbuf *unclicked[6];
+extern GdkPixbuf *clicked[6];
+extern GdkPixbuf *cancel_pixbuf;
 
 gdouble distFunction(gdouble x1, gdouble y1, gdouble x2, gdouble y2) {
 	return pow(pow(x1 - x2, 2) + pow(y1 - y2, 2),0.5);
@@ -116,8 +117,19 @@ void load_global_images() {
     
     //images for weighUI
     load_image(&exitImage,"Resources/Exit.png",70);
-    load_image(&image1,"Resources/default_1.png",54);
-    load_image(&clicked1,"Resources/highlighted_1.png",54);
+    
+    //Load for surveyUI
+    load_image(&unclicked[0],"Resources/default_1.png",40);
+    load_image(&clicked[0],"Resources/highlighted_1.png",40);
+    load_image(&unclicked[1],"Resources/default_2.png",40);
+    load_image(&clicked[1],"Resources/highlighted_2.png",40);
+    load_image(&unclicked[2],"Resources/default_3.png",40);
+    load_image(&clicked[2],"Resources/highlighted_3.png",40);
+    load_image(&unclicked[3],"Resources/default_4.png",40);
+    load_image(&clicked[3],"Resources/highlighted_4.png",40);
+    load_image(&unclicked[4],"Resources/default_5.png",40);
+    load_image(&clicked[4],"Resources/highlighted_5.png",40);
+    load_image(&cancel_pixbuf,"Resources/Exit.png",50);
 }
 
 void load_globals(int teamNum) {
@@ -146,15 +158,16 @@ void load_globals(int teamNum) {
     if(teams[teamNum].teamSettings->playerPerPage == 15) {
         //printf("playersPerPage 15\n");
         double xp = 200;
-        double yp = 270;
+        double yp = 250;
         for (int i = 0; i < 15; i++) {
+            printf("Circle: %i\n",i);
             teams[teamNum].teamCircles[i].x = xp;
             teams[teamNum].teamCircles[i].y = yp;
             teams[teamNum].teamCircles[i].radius = RADIUS;
             yp += 300;
             if(yp > 1450) {
                 xp += 340;
-                yp = 270;
+                yp = 250;
             }
         }
     }
@@ -174,6 +187,7 @@ void load_globals(int teamNum) {
         }
     }
     teams[teamNum].survey = get_survey(teams[teamNum].teamSettings->baseUrl,teamNum, &teams[teamNum].surveyNumQuestions);
+    printf("\n\n\nSurvey: %s\n",teams[teamNum].survey[0].Name);
     //create_survey_window(teams[teamNum].survey);
 }
 
@@ -186,6 +200,7 @@ void set_team(int teamNum) {
     settings = teams[teamNum].teamSettings;
     players = teams[teamNum].teamPlayers;
     practices = teams[teamNum].teamPractices;
+    teamIndex = teamNum;
 }
 
 void clear_practice() {
@@ -273,13 +288,18 @@ void submit_weight(SubmitData *data) {
         type = 2;
         
     free(send_weight(settings->baseUrl,entry,players[sorted[playerIndex]].Id,type,rawtime_double,teamIndex));
-    players[playerIndex].weight = atoi(entry);
+    strcpy(players[playerIndex].weight,entry);//players[playerIndex].weight = entry;
     players[playerIndex].weighed = 1;
     
     printf("%i\n",settings->survey);
     gtk_widget_destroy(data->window);
-    if(settings->survey == 1) {
-        create_survey_window(teams[teamIndex].survey, teams[teamIndex].surveyNumQuestions,settings->surveyTimer);
+    if(settings->survey == 1) { //if there is a survey to create
+        char weighMode[16];
+        if(mode == WEIGH_IN)
+            strcpy(weighMode,"Weigh-In");
+        else
+            strcpy(weighMode,"Weigh-Out");
+        create_survey_window(teams[teamIndex].survey, teams[teamIndex].surveyNumQuestions,settings->surveyTimer, images[playerIndex], &players[playerIndex], weighMode);
         view = MAIN_WINDOW;
     }
     else
@@ -293,64 +313,6 @@ void submit_weight(SubmitData *data) {
     gtk_widget_queue_draw(main_window);
 }
 
-/*void create_weigh_input(GdkPixbuf *pixbuf, const char *text, int playerIndex) {
-    view = WEIGH_WINDOW;
-    GtkWidget *window;
-    GtkWidget *vbox;
-    GtkWidget *label;
-    GtkWidget *image;
-    GtkWidget *entry;
-    GtkWidget *button;
-    view = WEIGH_WINDOW;
-
-    // create new window
-    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-    gtk_window_set_title(GTK_WINDOW(window), "popup_window");
-    gtk_window_set_default_size(GTK_WINDOW(window), 300, 500);
-    gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
-
-
-    // when the window is given the "delete-event" signal (this is given by the window manager, 
-    // usually by the "close" option, or on the titlebar), we ask it to call the delete_event () 
-    // function as defined above. The data passed to the callback function is NULL and is ignored 
-    // in the callback function.
-    g_signal_connect(window, "delete-event", G_CALLBACK(gtk_main_quit), NULL);
-
-    // create vbox to hold image, label, entry and button
-    vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
-    gtk_container_add(GTK_CONTAINER(window), vbox);
-
-    // create label with text
-    label = gtk_label_new(text);
-    gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 2);
-
-    // create image from pixbuf
-    image = gtk_image_new_from_pixbuf(pixbuf);
-    gtk_box_pack_start(GTK_BOX(vbox), image, TRUE, TRUE, 2);
-
-    // create text entry
-    entry = gtk_entry_new();
-    gtk_box_pack_start(GTK_BOX(vbox), entry, FALSE, FALSE, 2);
-
-    // create submit button
-    button = gtk_button_new_with_label("Send weight");
-    gtk_box_pack_start(GTK_BOX(vbox), button, FALSE, FALSE, 2);
-    
-    SubmitData *submit_data = g_new(SubmitData, 1);
-    submit_data->playerIndex = playerIndex;
-    submit_data->entry = entry;
-    submit_data->window = window;
-
-    // connect button click event with callback that closes the window and call the submit function
-    g_signal_connect_swapped(button, "clicked", G_CALLBACK(submit_weight), submit_data);
-    
-    g_timeout_add_seconds(10, (GSourceFunc)auto_close_window, (gpointer)window); //time out
-
-    // show all widgets in the window
-    gtk_widget_show_all(window);
-    printf("Finished weigh window\n");
-}*/
-
 int clicks = 0;
 gboolean clicked_inside_circle(gdouble event_x, gdouble event_y, GtkWidget *widget) { //get weight
 	if(mode != WAITING && view == MAIN_WINDOW) {
@@ -358,6 +320,7 @@ gboolean clicked_inside_circle(gdouble event_x, gdouble event_y, GtkWidget *widg
             gdouble dist = distFunction(circles[i].x,circles[i].y,event_x,event_y);
             if(dist < circles[i].radius) {
                 gtk_widget_queue_draw(widget);
+                i += pageNum*playerPerPage;
                 //show_text_input_dialog(widget,sorted[i]);
                 create_weigh_input(images[sorted[i]],&players[sorted[i]], sorted[i],submit_weight);
             }
@@ -403,11 +366,19 @@ gboolean clicked_logo(gdouble event_x, gdouble event_y, GtkWidget *widget) {
 }
 
 gboolean clicked_team(gdouble event_x, gdouble event_y, GtkWidget *widget) {
-	if(distFunction(TEAM_X,TEAM_Y,event_x,event_y) < 70) {
-        teamIndex++;
-        if(teamIndex >= numTeams)
-            teamIndex = 0;
-        change_team(teamIndex,widget);
+    if(view == TEAM_SELECTING) {
+        int yp = 200;
+        for(int i = 0; i < numTeams; i++) {
+            if(distFunction(250,yp,event_x,event_y) < 70) {
+                view = MAIN_WINDOW;
+                change_team(i,widget);
+            }
+            yp += 150;
+        }
+    }
+	else if(distFunction(TEAM_X,TEAM_Y,event_x,event_y) < 70 && view == MAIN_WINDOW) {
+        view = TEAM_SELECTING;
+        gtk_widget_queue_draw(widget);
     }
     return FALSE;
 }
@@ -480,78 +451,93 @@ void draw_circle(cairo_t *cr, int i, int player) { //double xp, double yp, doubl
 }
 
 gboolean on_draw_event(GtkWidget *widget, cairo_t *cr, gpointer data) {
-    //Draw text
-    cairo_set_source_rgb(cr, 255, 255, 255); // Sets the color to white for the text
-    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, 50); // Sets the text size
-    cairo_move_to(cr, 280,80); // Sets the position where the text will start
-    cairo_show_text(cr, "WEIGHT STATION"); // The text string to draw
-    cairo_set_font_size(cr, 15); // Sets the text size
-    cairo_move_to(cr, 340,110); // Sets the position where the text will start
-    if(mode == WEIGH_IN)
-        cairo_show_text(cr, "Click your headshot to weigh in"); // The text string to draw
-    else if(mode == WEIGH_OUT)
-        cairo_show_text(cr, "Click your headshot to weigh out");
-    else if(mode == WAITING) { //when waiting draw the time till weigh in
-        printf("Showing time till weigh in\n");
-        time_t rawtime_int;
-        double rawtime_double;
-        rawtime_int = time(NULL);
-        rawtime_double = (double)rawtime_int;
-        double waitTime = practices[0].utcStartTime-rawtime_double;
-        char time_string[120];
-        seconds_to_readable_time(waitTime,time_string);
-        printf("%d\n",waitTime);
-        cairo_show_text(cr, time_string);
-        
-        g_timeout_add_seconds(10, (GSourceFunc) time_handler, (gpointer) widget); // every 60 seconds recheck if in timeout
-    }
-    
-    if(mode != WAITING) {
-        g_timeout_add_seconds(60, (GSourceFunc) time_handler, (gpointer) widget); // every 60 seconds recheck if in timeout
-        int playersDrawn = *numPlayers_pointer;
-        int circleNum = 0;
-        if(playerPerPage*(pageNum+1) < playersDrawn) //set players drawn to whichever is less, max players or 15 on this page
-            playersDrawn = playerPerPage*(pageNum+1);
-        if(drawn == 1) {
-            printf("Players drawn to: %i\n",playersDrawn);
-            for (int i = playerPerPage*pageNum; i < playersDrawn; i++) {
-                draw_circle(cr,circleNum, sorted[i]);
-                circleNum++;
-            }
-        //drawn = 0;
-        }
-        if(pageNum < settings->numPages)
-            draw_image(cr,FORWARD_ARROW_X,FORWARD_ARROW_Y,forwardArrow);
-        if(pageNum > 0)
-            draw_image(cr,BACK_ARROW_X,BACK_ARROW_Y,backArrow);
-        }
-        
-    draw_image(cr,LOGO_X,LOGO_Y,oasisLogo);
-    draw_image(cr,TEAM_X,LOGO_Y,changeTeam);
-    
-    //Draw connected text
-    cairo_set_source_rgb(cr, 255, 255, 255); // Sets the color to white for the text
-    cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
-    cairo_set_font_size(cr, 18); // Sets the text size      
-    cairo_move_to(cr, 750,60); // Sets the position where the text will start  
-    cairo_show_text(cr, "DMX: "); // The text string to draw
-        
-    if(settings->server == 0) { //if client draw if connected
-        cairo_move_to(cr, 750,80); // Sets the position where the text will start
-        cairo_show_text(cr, "Server: "); // The text string to draw
-        printf("Connection drawn: %i\n", connected);
-        if(connected != 0)
-            draw_image(cr,825,76,checkImage);
-        else
-            draw_image(cr,825,76,XImage);
-    }
-    if(dmx_connected != 0)
-        draw_image(cr,825,56,checkImage);
-    else
-        draw_image(cr,825,56,XImage);
+    if(view != TEAM_SELECTING) {
+        //Draw text
+        cairo_set_source_rgb(cr, 255, 255, 255); // Sets the color to white for the text
+        cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+        cairo_set_font_size(cr, 50); // Sets the text size
+        cairo_move_to(cr, 280,80); // Sets the position where the text will start
+        cairo_show_text(cr, "WEIGHT STATION"); // The text string to draw
+        cairo_set_font_size(cr, 15); // Sets the text size
+        cairo_move_to(cr, 340,110); // Sets the position where the text will start
+        if(mode == WEIGH_IN)
+            cairo_show_text(cr, "Click your headshot to weigh in"); // The text string to draw
+        else if(mode == WEIGH_OUT)
+            cairo_show_text(cr, "Click your headshot to weigh out");
+        else if(mode == WAITING) { //when waiting draw the time till weigh in
+            printf("Showing time till weigh in\n");
+            time_t rawtime_int;
+            double rawtime_double;
+            rawtime_int = time(NULL);
+            rawtime_double = (double)rawtime_int;
+            double waitTime = practices[0].utcStartTime-rawtime_double;
+            char time_string[120];
+            seconds_to_readable_time(waitTime,time_string);
+            printf("%d\n",waitTime);
+            cairo_show_text(cr, time_string);
             
-    return FALSE;
+            g_timeout_add_seconds(10, (GSourceFunc) time_handler, (gpointer) widget); // every 60 seconds recheck if in timeout
+        }
+        
+        if(mode != WAITING) {
+            g_timeout_add_seconds(60, (GSourceFunc) time_handler, (gpointer) widget); // every 60 seconds recheck if in timeout
+            int playersDrawn = *numPlayers_pointer;
+            int circleNum = 0;
+            if(playerPerPage*(pageNum+1) < playersDrawn) //set players drawn to whichever is less, max players or 15 on this page
+                playersDrawn = playerPerPage*(pageNum+1);
+            if(drawn == 1) {
+                printf("Players drawn to: %i\n",playersDrawn);
+                for (int i = playerPerPage*pageNum; i < playersDrawn; i++) {
+                    draw_circle(cr,circleNum, sorted[i]);
+                    circleNum++;
+                }
+            //drawn = 0;
+            }
+            if(pageNum < settings->numPages)
+                draw_image(cr,FORWARD_ARROW_X,FORWARD_ARROW_Y,forwardArrow);
+            if(pageNum > 0)
+                draw_image(cr,BACK_ARROW_X,BACK_ARROW_Y,backArrow);
+            }
+            
+        draw_image(cr,LOGO_X,LOGO_Y,oasisLogo);
+        draw_image(cr,TEAM_X,LOGO_Y,changeTeam);
+        
+        //Draw connected text
+        cairo_set_source_rgb(cr, 255, 255, 255); // Sets the color to white for the text
+        cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+        cairo_set_font_size(cr, 18); // Sets the text size      
+        cairo_move_to(cr, 750,60); // Sets the position where the text will start  
+        cairo_show_text(cr, "DMX: "); // The text string to draw
+            
+        if(settings->server == 0) { //if client draw if connected
+            cairo_move_to(cr, 750,80); // Sets the position where the text will start
+            cairo_show_text(cr, "Server: "); // The text string to draw
+            printf("Connection drawn: %i\n", connected);
+            if(connected != 0)
+                draw_image(cr,825,76,checkImage);
+            else
+                draw_image(cr,825,76,XImage);
+        }
+        if(dmx_connected != 0)
+            draw_image(cr,825,56,checkImage);
+        else
+            draw_image(cr,825,56,XImage);
+                
+        return FALSE;
+    }
+    else { //handle team selecting view
+        printf("%s\n",settings->teamName);
+        int yp = 200;
+        for(int i = 0; i < numTeams; i++) {
+            cairo_set_source_rgb(cr, 255, 255, 255); // Sets the color to white for the text
+            cairo_select_font_face(cr, "Sans", CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL);
+            cairo_set_font_size(cr, 30); // Sets the text size      
+            cairo_move_to(cr, 350,yp); // Sets the position where the text will start  
+            cairo_show_text(cr, teams[i].teamSettings->teamName); // The text string to draw
+            draw_sprite(cr, 250, yp, 50, emptyImage);
+            yp += 150;
+        }
+    }
 }
 
 gboolean on_button_press_event(GtkWidget *widget, GdkEventButton *event, gpointer data) {
@@ -580,6 +566,8 @@ void create_main_window() {
 
     GdkDisplay* Display = gdk_display_get_default();
     GdkScreen* Screen = gdk_display_get_default_screen(Display);
+    GtkWindow *window = GTK_WINDOW(main_window);
+    gtk_window_set_decorated(window, FALSE);
 
     //gtk_style_context_add_provider_for_screen(Screen, GTK_STYLE_PROVIDER(Provider), GTK_STYLE_PROVIDER_PRIORITY_USER);
     //gtk_css_provider_load_from_data(GTK_CSS_PROVIDER(Provider), "* { background-color: rgb(44,67,102); }", -1, NULL); //create background color

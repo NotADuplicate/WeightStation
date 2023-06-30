@@ -8,7 +8,7 @@ typedef struct {
     char HeadshotUrl[100];
     char HeadshotFilepath[50];
     char UniformNumber[4];
-    float weight;
+    char weight[6];
     int weighed; //0 is false, 1 is true
     char Position[6];
     char LockerNumber[4];

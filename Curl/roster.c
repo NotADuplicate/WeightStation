@@ -178,7 +178,7 @@ char *getNames(const char* baseUrl, int teamIndex) {
 }
 
 Player* process_json(const char *json_string, int *numPlayers_pointer) {
-    printf("Processing json in roster.c: \n %s\n",json_string);
+    //printf("Processing json in roster.c: \n %s\n",json_string);
     json_error_t error;
     json_t *root;
     int player_count = 0;
@@ -339,7 +339,7 @@ char *send_weight(const char* baseUrl, const char* weight, int playerId, int wei
 
   curl_global_cleanup();
   
-  printf("%s\n",json_copy);
+  //printf("%s\n",json_copy);
   
   return json_copy;
 }
@@ -499,8 +499,10 @@ void update_last_weigh_in(const char *json_array_str, Player *players, size_t nu
 
         for (size_t i = 0; i < num_players; i++) {
             if (players[i].Id == id) {
-                printf("Matched player %s\n",players[i].UniformNumber);
-                players[i].weight = value;
+                printf("Matched player %s",players[i].UniformNumber);
+                //players[i].weight = value;
+                sprintf(players[i].weight, "%0.1f",value);
+                printf(" with weight %s\n", players[i].weight);
                 break;
             }
         }

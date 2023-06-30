@@ -12,7 +12,8 @@ enum View {
     MAIN_WINDOW = 0,
     DMX_WINDOW = 1, 
     WEIGH_WINDOW = 2,
-    SURVEY_WINDOW = 3
+    SURVEY_WINDOW = 3,
+    TEAM_SELECTING = 4
 };
 
 typedef struct {
